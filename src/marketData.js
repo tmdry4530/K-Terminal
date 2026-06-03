@@ -10,6 +10,12 @@ export const DATA_STATUS = Object.freeze({
 });
 
 const DEFAULT_TIMEOUT = 6500;
+// Yahoo's public endpoints throttle/deny requests without a realistic browser User-Agent.
+// The /v8/finance/chart path (our quote+chart backbone) needs no crumb — only these headers.
+const YAHOO_HEADERS = Object.freeze({
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+  Accept: 'application/json,text/plain,*/*'
+});
 const RANGE_MAP = {
   '1M': '1mo',
   '3M': '3mo',
@@ -184,7 +190,7 @@ function parseYahooQuote(symbol, json) {
 async function yahooQuote(symbol) {
   try {
     const normalized = normalizeSymbol(symbol);
-    const json = await fetchWithTimeout(yahooUrl(normalized, { range: '1d', interval: '5m', includePrePost: 'false' }));
+    const json = await fetchWithTimeout(yahooUrl(normalized, { range: '1d', interval: '5m', includePrePost: 'false' }), { headers: YAHOO_HEADERS });
     return parseYahooQuote(normalized, json);
   } catch (error) {
     return emptyQuote(symbol, DATA_STATUS.ERROR, classifyError(error, 'Yahoo'));
@@ -199,7 +205,7 @@ async function yahooChart(symbol, range = '1Y', interval = '1D') {
       interval: INTERVAL_MAP_YAHOO[interval] || '1d',
       includePrePost: 'false',
       events: 'div,splits'
-    }));
+    }), { headers: YAHOO_HEADERS });
     return parseYahooChartResponse(normalized, json, range, interval);
   } catch (error) {
     return emptyChart(symbol, range, interval, DATA_STATUS.ERROR, classifyError(error, 'Yahoo'));
@@ -420,24 +426,30 @@ export async function getOptions(symbol) {
     return { symbol: normalizeSymbol(symbol), options: [], status: DATA_STATUS.NO_DATA, statusMessage: '옵션 체인을 지원하지 않는 심볼입니다.', source: null };
   }
   try {
-    const data = await fetchWithTimeout(`https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(normalized)}`);
+    const data = await fetchWithTimeout(`https://query2.finance.yahoo.com/v7/finance/options/${encodeURIComponent(normalized)}`, { headers: YAHOO_HEADERS });
     const result = data?.optionChain?.result?.[0];
     const options = result?.options?.[0];
     if (!options) {
       return { symbol: normalized, options: [], status: DATA_STATUS.NO_DATA, statusMessage: '옵션 체인 응답이 비어 있습니다.', source: 'Yahoo Finance public options endpoint' };
     }
-    const rows = [...(options.calls || []), ...(options.puts || [])].slice(0, 120).map((item) => ({
+    // Type comes from which array the contract is in. The old heuristic
+    // (contractSymbol.includes('C')) misclassified, since most tickers contain a C or P.
+    const mapContract = (item, type) => ({
       contractSymbol: item.contractSymbol,
       expiration: item.expiration ? new Date(item.expiration * 1000).toISOString().slice(0, 10) : null,
       strike: finiteOrNull(item.strike),
-      type: item.contractSymbol?.includes('C') ? 'CALL' : 'PUT',
+      type,
       lastPrice: finiteOrNull(item.lastPrice),
       bid: finiteOrNull(item.bid),
       ask: finiteOrNull(item.ask),
       volume: finiteOrNull(item.volume),
       openInterest: finiteOrNull(item.openInterest),
       impliedVolatility: finiteOrNull(item.impliedVolatility)
-    }));
+    });
+    const rows = [
+      ...(options.calls || []).map((item) => mapContract(item, 'CALL')),
+      ...(options.puts || []).map((item) => mapContract(item, 'PUT'))
+    ].slice(0, 120);
     return {
       symbol: normalized,
       options: rows,

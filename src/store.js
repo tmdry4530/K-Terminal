@@ -82,6 +82,11 @@ export class JsonStore {
     return this.writePromise;
   }
 
+  // Resolves once any in-flight persist() has finished writing. Used by graceful shutdown.
+  async flush() {
+    return this.writePromise;
+  }
+
   cleanupSessions() {
     const now = Date.now();
     for (const [sessionHash, session] of Object.entries(this.db.sessions)) {

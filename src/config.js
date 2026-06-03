@@ -1,8 +1,13 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadEnv } from './env.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
+
+// Load .env before any process.env value is read below. Real environment variables
+// always win; a missing .env is not an error.
+loadEnv(path.join(rootDir, process.env.ENV_FILE || '.env'));
 
 function bool(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;

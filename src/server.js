@@ -358,6 +358,48 @@ async function handler(req, res) {
 
 await store.init();
 const server = http.createServer(handler);
+
+// Track open sockets so graceful shutdown can close idle keep-alive connections —
+// server.close() waits for active requests but never ends idle sockets on its own.
+const sockets = new Set();
+server.on('connection', (socket) => {
+  sockets.add(socket);
+  socket.on('close', () => sockets.delete(socket));
+});
+
+// Tasks other modules register to run during graceful shutdown (e.g. closing SSE streams).
+export const shutdownTasks = new Set();
+
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received — draining connections...`);
+  const forced = setTimeout(() => {
+    console.error('Drain timed out; forcing exit.');
+    process.exit(1);
+  }, 10000);
+  forced.unref();
+  server.close(async () => {
+    try {
+      for (const task of shutdownTasks) await task();
+      await store.flush();
+    } catch (error) {
+      console.error('Error during shutdown:', error.message);
+    }
+    clearTimeout(forced);
+    console.log('Shutdown complete.');
+    process.exit(0);
+  });
+  // End idle keep-alive sockets so server.close() can complete; in-flight requests finish.
+  for (const socket of sockets) {
+    if (!socket._httpMessage) socket.end();
+  }
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 server.listen(config.port, () => {
   console.log(`K Terminal Finance listening on http://localhost:${config.port}`);
 });
