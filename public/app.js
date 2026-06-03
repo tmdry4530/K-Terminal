@@ -22,7 +22,10 @@ const state = {
   resizeObserver: null,
   priceMap: new Map(),
   stream: null,
-  streamState: 'OFF'
+  streamState: 'OFF',
+  cmdHistory: JSON.parse(localStorage.getItem('kt.cmdHistory') || '[]'),
+  compareSymbols: [],
+  compareSeries: []
 };
 
 const DEFAULT_VIEWS = {
@@ -151,6 +154,17 @@ function clsChange(value) {
   const num = Number(value);
   if (!Number.isFinite(num) || num === 0) return 'flat';
   return num > 0 ? 'up' : 'down';
+}
+
+// Accessibility: never signal direction with color alone — pair with an arrow glyph.
+function dirArrow(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num === 0) return '·';
+  return num > 0 ? '▲' : '▼';
+}
+
+function chgText(value) {
+  return `${dirArrow(value)} ${pct(value)}`;
 }
 
 function escapeHtml(value) {
@@ -326,6 +340,7 @@ async function loadMeta() {
     state.layout = state.user.settings.layout;
   }
   $('#login-open').textContent = state.user ? state.user.email.split('@')[0].toUpperCase() : 'LOGIN';
+  updateCommandList();
 }
 
 async function loadSnapshot() {
@@ -391,6 +406,7 @@ async function saveWatchlist(list) {
   }
   await loadWatchlistQuotes();
   renderWorkspace();
+  updateCommandList();
   startStream(); // resubscribe the live stream to the updated symbol set
 }
 
@@ -405,7 +421,7 @@ function renderIndexStrip() {
     <div class="index-card ${flash}" title="${escapeHtml(q.statusMessage || '')}">
       <div class="label"><span>${escapeHtml(labelFor(q.symbol))}</span><span>${escapeHtml(q.status || '')}</span></div>
       <div class="value">${fmt(q.price)}</div>
-      <div class="change ${clsChange(q.changePercent)}">${signed(q.change)} / ${signed(q.changePercent, '%')}</div>
+      <div class="change ${clsChange(q.changePercent)}">${dirArrow(q.changePercent)} ${signed(q.change)} / ${signed(q.changePercent, '%')}</div>
     </div>`;
   }).join('') || '<div class="index-card"><div class="label">데이터 없음</div></div>';
 }
@@ -436,7 +452,7 @@ function applyLiveQuotes(quotes) {
     const sel = cssAttrValue(q.symbol);
     $$(`[data-live-price="${sel}"]`).forEach((el) => { el.textContent = fmt(q.price); flashCell(el, dir); });
     $$(`[data-live-chg="${sel}"]`).forEach((el) => {
-      el.textContent = pct(q.changePercent);
+      el.textContent = chgText(q.changePercent);
       el.classList.remove('up', 'down', 'flat');
       el.classList.add(clsChange(q.changePercent));
       flashCell(el, dir);
@@ -549,7 +565,7 @@ function renderWatchlist(body) {
       <tbody>
       ${quotes.map((q) => `<tr>
         <td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td>
-        <td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${pct(q.changePercent)}</td><td>${statusBadge(q.status, q.statusMessage)}</td>
+        <td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${chgText(q.changePercent)}</td><td>${statusBadge(q.status, q.statusMessage)}</td>
         <td><button class="remove-watch" data-symbol="${escapeHtml(q.symbol)}">DEL</button></td>
       </tr>`).join('')}
       </tbody>
@@ -598,7 +614,7 @@ function renderMonitorGrid(body) {
   api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
     $('#monitor-grid-body', body).innerHTML = `
       <table class="table"><thead><tr><th>Symbol</th><th>Px</th><th>Chg</th><th>Vol</th><th>Status</th></tr></thead><tbody>
-      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${pct(q.changePercent)}</td><td>${fmt(q.volume, 0)}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
+      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${chgText(q.changePercent)}</td><td>${fmt(q.volume, 0)}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
       </tbody></table>`;
     $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
   }).catch((error) => { $('#monitor-grid-body', body).textContent = `데이터 없음: ${error.message}`; });
@@ -612,7 +628,7 @@ function renderCryptoMonitor(body) {
   api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
     $('#crypto-monitor-body', body).innerHTML = `
       <table class="table"><thead><tr><th>Symbol</th><th>Px</th><th>Chg%</th><th>Ccy</th><th>Status</th></tr></thead><tbody>
-      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${pct(q.changePercent)}</td><td>${escapeHtml(q.currency || '')}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
+      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${chgText(q.changePercent)}</td><td>${escapeHtml(q.currency || '')}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
       </tbody></table>`;
     $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
   }).catch((error) => { $('#crypto-monitor-body', body).textContent = `데이터 없음: ${error.message}`; });
@@ -644,34 +660,50 @@ function renderChartWidget(body, widgetId, options = {}) {
   body.innerHTML = `
     <div class="chart-wrap ${options.big ? 'big-chart' : ''}">
       <div class="chart-controls">
-        <input id="chart-symbol" value="${escapeHtml(state.activeSymbol)}" />
-        <select id="chart-range">${['1M', '3M', '6M', '1Y', '2Y', '5Y', '10Y'].map((r) => `<option ${state.range === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        <select id="chart-interval">${['1D', '1W', '1M'].map((r) => `<option ${state.interval === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <input id="chart-symbol" value="${escapeHtml(state.activeSymbol)}" aria-label="차트 심볼" />
+        <select id="chart-range" aria-label="기간">${['1M', '3M', '6M', '1Y', '2Y', '5Y', '10Y'].map((r) => `<option ${state.range === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <select id="chart-interval" aria-label="인터벌">${['1D', '1W', '1M'].map((r) => `<option ${state.interval === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
+        <input id="chart-compare" value="${escapeHtml((state.compareSymbols || []).join(','))}" placeholder="비교: MSFT,SPY" aria-label="비교 심볼" style="width:120px" />
         <button id="chart-load">LOAD</button>
         <span>${state.chart ? statusBadge(state.chart.status, state.chart.statusMessage) : statusBadge('데이터 없음')}</span>
         <span class="muted">${escapeHtml(state.chart?.source || '데이터 로드 전')}</span>
+        <span class="muted" id="chart-readout"></span>
       </div>
-      <svg class="chart-svg" id="price-chart"></svg>
-      <svg class="indicator-svg" id="rsi-chart"></svg>
-      <svg class="indicator-svg" id="macd-chart"></svg>
+      <svg class="chart-svg" id="price-chart" role="img" aria-label="가격 차트"></svg>
+      <svg class="indicator-svg" id="rsi-chart" role="img" aria-label="RSI"></svg>
+      <svg class="indicator-svg" id="macd-chart" role="img" aria-label="MACD"></svg>
     </div>
   `;
   const load = async () => {
     state.activeSymbol = $('#chart-symbol', body).value.trim().toUpperCase() || 'AAPL';
     state.range = $('#chart-range', body).value;
     state.interval = $('#chart-interval', body).value;
+    state.compareSymbols = $('#chart-compare', body).value.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 4);
     await loadChart();
+    await loadCompare();
     renderWorkspace();
   };
   $('#chart-load', body).addEventListener('click', load);
   $('#chart-symbol', body).addEventListener('keydown', (event) => { if (event.key === 'Enter') load(); });
+  $('#chart-compare', body).addEventListener('keydown', (event) => { if (event.key === 'Enter') load(); });
   if (!state.chart || state.chart.symbol !== state.activeSymbol || state.chart.range !== state.range || state.chart.interval !== state.interval) {
-    loadChart().then(renderWorkspace).catch((error) => { $('#price-chart', body).outerHTML = `<div class="badge err">${escapeHtml(error.message)}</div>`; });
+    loadChart().then(loadCompare).then(renderWorkspace).catch((error) => { $('#price-chart', body).outerHTML = `<div class="badge err">${escapeHtml(error.message)}</div>`; });
     return;
   }
-  drawPriceChart($('#price-chart', body), state.chart.candles || []);
+  const readout = $('#chart-readout', body);
+  if (state.compareSymbols?.length) drawComparison($('#price-chart', body), state.chart.candles || [], readout);
+  else drawPriceChart($('#price-chart', body), state.chart.candles || [], readout);
   drawRsi($('#rsi-chart', body), state.chart.candles || []);
   drawMacd($('#macd-chart', body), state.chart.candles || []);
+}
+
+async function loadCompare() {
+  const symbols = state.compareSymbols || [];
+  if (!symbols.length) { state.compareSeries = []; return; }
+  const results = await Promise.allSettled(symbols.map((symbol) => api(`/api/market/chart?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(state.range)}&interval=${encodeURIComponent(state.interval)}`)));
+  state.compareSeries = results
+    .map((result, index) => ({ symbol: symbols[index], candles: result.status === 'fulfilled' ? (result.value.candles || []) : [] }))
+    .filter((series) => series.candles.length);
 }
 
 function valuesForScale(candles) {
@@ -680,7 +712,7 @@ function valuesForScale(candles) {
   return { min: Math.min(...lows), max: Math.max(...highs) };
 }
 
-function drawPriceChart(svg, candles) {
+function drawPriceChart(svg, candles, readout) {
   const width = 920;
   const height = 330;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
@@ -735,8 +767,58 @@ function drawPriceChart(svg, candles) {
     <path class="bb" d="${path(bb.map((d) => d.lower))}"/>
     <path class="ma20" d="${path(ma20)}"/>
     <path class="ma50" d="${path(ma50)}"/>
+    <line id="ch-line" x1="0" x2="0" y1="${plotTop}" y2="${plotBottom}" stroke="#5b6b76" stroke-dasharray="3 3" style="display:none"/>
     <text x="40" y="12" fill="#dbe6ec" font-size="11">${escapeHtml(state.chart.symbol)} ${escapeHtml(state.chart.range)} ${escapeHtml(state.chart.interval)} | MA20/MA50/Bollinger/Volume</text>
   `;
+  const crosshair = svg.querySelector('#ch-line');
+  svg.onmousemove = (event) => {
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !candles.length) return;
+    const xv = ((event.clientX - rect.left) / rect.width) * width;
+    const i = Math.max(0, Math.min(candles.length - 1, Math.round(((xv - 40) / (width - 70)) * (candles.length - 1))));
+    const bar = candles[i];
+    crosshair.setAttribute('x1', x(i));
+    crosshair.setAttribute('x2', x(i));
+    crosshair.style.display = '';
+    if (readout) readout.textContent = `${String(bar.time).slice(0, 10)} O ${fmt(bar.open)} H ${fmt(bar.high)} L ${fmt(bar.low)} C ${fmt(bar.close)} V ${fmt(bar.volume, 0)}`;
+  };
+  svg.onmouseleave = () => { crosshair.style.display = 'none'; if (readout) readout.textContent = ''; };
+}
+
+function drawComparison(svg, mainCandles, readout) {
+  const width = 920;
+  const height = 330;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  const series = [{ symbol: state.chart.symbol, candles: mainCandles }, ...(state.compareSeries || [])]
+    .map((s) => ({ symbol: s.symbol, closes: s.candles.map((c) => Number(c.close)).filter(Number.isFinite) }))
+    .filter((s) => s.closes.length > 1);
+  if (!series.length) { svg.innerHTML = '<text x="20" y="40" fill="#7c8b94">비교 데이터 없음</text>'; return; }
+  const colors = ['#dbe6ec', '#4da3ff', '#f4b84a', '#28d17c', '#f05b65'];
+  const normalized = series.map((s) => ({ symbol: s.symbol, pct: s.closes.map((c) => (c / s.closes[0] - 1) * 100) }));
+  const maxLen = Math.max(...normalized.map((n) => n.pct.length));
+  const all = normalized.flatMap((n) => n.pct);
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const pad = (max - min) * 0.08 || 1;
+  const yMin = min - pad;
+  const yMax = max + pad;
+  const plotTop = 20;
+  const plotBottom = 300;
+  const x = (i) => 40 + (i / Math.max(1, maxLen - 1)) * (width - 70);
+  const y = (value) => plotBottom - ((value - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
+  const grid = [0, .25, .5, .75, 1].map((p) => {
+    const gy = plotTop + p * (plotBottom - plotTop);
+    const value = yMax - p * (yMax - yMin);
+    return `<line x1="35" x2="900" y1="${gy}" y2="${gy}" stroke="#16222a"/><text x="904" y="${gy + 4}" fill="#7c8b94" font-size="10">${value.toFixed(1)}%</text>`;
+  }).join('');
+  const zero = `<line x1="35" x2="900" y1="${y(0)}" y2="${y(0)}" stroke="#33434e" stroke-dasharray="3 3"/>`;
+  const paths = normalized.map((n, idx) => `<path d="${n.pct.map((value, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(value)}`).join(' ')}" fill="none" stroke="${colors[idx % colors.length]}" stroke-width="1.3"/>`).join('');
+  const legend = normalized.map((n, idx) => {
+    const last = n.pct.at(-1);
+    return `<text x="44" y="${14 + idx * 14}" fill="${colors[idx % colors.length]}" font-size="11">${escapeHtml(n.symbol)} ${last >= 0 ? '▲ +' : '▼ '}${last.toFixed(1)}%</text>`;
+  }).join('');
+  svg.innerHTML = `${grid}${zero}${paths}${legend}<text x="690" y="12" fill="#7c8b94" font-size="10">정규화 비교 (시작점 대비 %)</text>`;
+  if (readout) readout.textContent = '정규화 비교 모드';
 }
 
 function drawRsi(svg, candles) {
@@ -1258,12 +1340,38 @@ function backgroundLoadForTab(tab) {
   if (tab === 'options') loadOptions().then(renderWorkspace).catch(() => {});
 }
 
+function pushCommandHistory(raw) {
+  state.cmdHistory = [raw, ...state.cmdHistory.filter((command) => command !== raw)].slice(0, 30);
+  localStorage.setItem('kt.cmdHistory', JSON.stringify(state.cmdHistory));
+  updateCommandList();
+}
+
+function updateCommandList() {
+  const list = $('#command-list');
+  if (!list) return;
+  const symbols = [...new Set([
+    ...currentWatchlist(),
+    ...(state.meta?.marketUniverse?.map((item) => item.symbol) || []),
+    ...(state.meta?.cryptoUniverse?.map((item) => item.symbol) || []),
+    'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META', 'SPY', 'QQQ'
+  ])];
+  const options = [...state.cmdHistory, ...symbols, 'NEWS ', 'PORT', 'AI '];
+  list.innerHTML = options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
+}
+
 function installCommand() {
   $('#ai-copilot').addEventListener('click', () => { state.activeTab = 'ai'; updateTabs(); renderWorkspace(); });
+  updateCommandList();
   $('#command-input').addEventListener('keydown', async (event) => {
+    if (event.key === 'ArrowUp' && !event.currentTarget.value.trim() && state.cmdHistory.length) {
+      event.currentTarget.value = state.cmdHistory[0]; // recall most recent; datalist browses the rest
+      event.preventDefault();
+      return;
+    }
     if (event.key !== 'Enter') return;
     const raw = event.currentTarget.value.trim();
     if (!raw) return;
+    pushCommandHistory(raw);
     const [cmd, arg] = raw.split(/\s+/);
     const upper = cmd.toUpperCase();
     if (upper === 'NEWS') { state.activeSymbol = (arg || state.activeSymbol).toUpperCase(); state.activeTab = 'news'; await loadNews().catch(() => {}); }
@@ -1272,6 +1380,20 @@ function installCommand() {
     else { state.activeSymbol = upper; state.activeTab = 'chart'; state.chart = null; await loadChart().catch(() => {}); }
     event.currentTarget.value = '';
     updateTabs(); renderWorkspace();
+  });
+}
+
+function installKeyboard() {
+  document.addEventListener('keydown', (event) => {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target;
+    const tag = (target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable) return;
+    if (event.key === '/') { event.preventDefault(); $('#command-input').focus(); }
+    else if (event.key === '?') { event.preventDefault(); const dialog = $('#help-dialog'); if (dialog.open) dialog.close(); else dialog.showModal(); }
+    else if (event.key === 'a' || event.key === 'A') { state.activeTab = 'ai'; updateTabs(); renderWorkspace(); }
+    else if (event.key === 'r' || event.key === 'R') { loadSnapshot().then(renderWorkspace).catch(() => {}); backgroundLoadForTab(state.activeTab); }
+    else if (/^[1-9]$/.test(event.key)) { const button = $$('#subtabs button')[Number(event.key) - 1]; if (button) button.click(); }
   });
 }
 
@@ -1331,7 +1453,7 @@ function tickClock() {
 
 async function init() {
   tickClock(); setInterval(tickClock, 1000);
-  installTabs(); installCommand(); installAuth(); installSplitters();
+  installTabs(); installCommand(); installAuth(); installSplitters(); installKeyboard();
   renderWorkspace();
   try {
     await loadMeta();

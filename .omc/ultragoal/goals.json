@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:40:57.610Z",
+  "updatedAt": "2026-06-03T13:44:19.071Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -95,20 +95,23 @@
       "id": "G008-economic-earnings-calendar",
       "title": "Economic & earnings calendar",
       "objective": "Add calendar module (Finnhub earnings when key present else API-required, FRED US release dates, honest data-none/api-required labels for uncovered free tiers); calendar widget highlighting the user watchlist symbols.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:40:57.610Z",
-      "startedAt": "2026-06-03T13:40:57.610Z"
+      "updatedAt": "2026-06-03T13:43:24.423Z",
+      "startedAt": "2026-06-03T13:40:57.610Z",
+      "completedAt": "2026-06-03T13:43:24.423Z",
+      "evidence": "Commit 14e9132. calendar.js (Finnhub/Nasdaq earnings, FRED economic, honest API필요 labels), config FRED_API_KEY+flag, /api/calendar/* routes, CALENDAR widget w/ watchlist highlight + FRED data-source row. 1 new test (29 total). Live-verified no-key: economic=API필요, earnings=36 real Nasdaq events labeled 비공식/지연."
     },
     {
       "id": "G009-terminal-ux-accessibility-polish",
       "title": "Terminal UX & accessibility polish",
       "objective": "Command box autocomplete + history (up-arrow recall), global keyboard shortcuts + help overlay, multi-symbol comparison overlay with crosshair readout on the SVG chart, and accessibility baseline (never color-alone with arrows+signs, ARIA on data grids, visible focus, prefers-reduced-motion, contrast).",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:44:19.071Z",
+      "startedAt": "2026-06-03T13:44:19.071Z"
     },
     {
       "id": "G010-test-coverage-ci-final-gate",
@@ -121,5 +124,5 @@
     }
   ],
   "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G008-economic-earnings-calendar"
+  "activeGoalId": "G009-terminal-ux-accessibility-polish"
 }

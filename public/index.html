@@ -19,7 +19,8 @@
       </nav>
       <div class="command-box">
         <span>LLM &lt;GO&gt;</span>
-        <input id="command-input" type="text" placeholder="티커, 화면, 명령 입력: AAPL 1Y / NEWS NVDA / PORT" autocomplete="off" />
+        <input id="command-input" type="text" list="command-list" placeholder="티커/명령 (/ 포커스, ? 도움말): AAPL / NEWS NVDA / PORT" autocomplete="off" aria-label="명령 입력" />
+        <datalist id="command-list"></datalist>
       </div>
       <button id="ai-copilot" class="ai-button">AI COPILOT</button>
       <button id="login-open" class="login-button">LOGIN</button>
@@ -29,7 +30,7 @@
       </div>
     </header>
 
-    <section class="index-strip" id="index-strip" aria-label="지수 스트립"></section>
+    <section class="index-strip" id="index-strip" aria-label="지수 스트립" aria-live="polite"></section>
 
     <section class="subtabs" id="subtabs" aria-label="내부 탭">
       <button data-tab="market" class="active">시장</button>
@@ -82,6 +83,21 @@
         <button value="cancel" class="icon-button">×</button>
       </header>
       <div id="big-modal-content"></div>
+    </form>
+  </dialog>
+
+  <dialog id="help-dialog" class="modal">
+    <form method="dialog" class="modal-card">
+      <header><strong>키보드 단축키</strong><button value="cancel" class="icon-button" aria-label="닫기">×</button></header>
+      <table class="table"><tbody>
+        <tr><td class="left"><kbd>/</kbd></td><td class="left">명령창 포커스</td></tr>
+        <tr><td class="left"><kbd>1</kbd>–<kbd>9</kbd></td><td class="left">탭 전환 (시장·모니터·차트·뉴스·포트폴리오·옵션·크립토·주문·AI)</td></tr>
+        <tr><td class="left"><kbd>r</kbd></td><td class="left">현재 화면 데이터 새로고침</td></tr>
+        <tr><td class="left"><kbd>a</kbd></td><td class="left">AI 코파일럿</td></tr>
+        <tr><td class="left"><kbd>?</kbd></td><td class="left">이 도움말 열기/닫기</td></tr>
+        <tr><td class="left"><kbd>Esc</kbd></td><td class="left">닫기</td></tr>
+      </tbody></table>
+      <div class="muted">명령창: 티커→차트, <code>NEWS NVDA</code>, <code>PORT</code>, <code>AI 질문</code>. 빈 입력에서 <kbd>↑</kbd>로 최근 명령 호출, 입력 중 자동완성 제공.</div>
     </form>
   </dialog>
 

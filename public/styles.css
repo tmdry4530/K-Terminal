@@ -28,6 +28,9 @@ label { display: grid; gap: 5px; font-size: 12px; color: var(--muted); }
 a { color: #9dbdff; text-decoration: none; }
 a:hover { text-decoration: underline; }
 
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; background: #11202b; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; }
+
 #app-shell { height: 100vh; display: grid; grid-template-rows: var(--topbar-height) 54px 34px minmax(0, 1fr) 26px; }
 .topbar { display: grid; grid-template-columns: auto auto minmax(280px, 1fr) auto auto auto; align-items: center; gap: 8px; height: var(--topbar-height); padding: 0 10px; border-bottom: 1px solid var(--line); background: #020303; }
 .brand { font-weight: 800; letter-spacing: .08em; font-size: 13px; white-space: nowrap; }
