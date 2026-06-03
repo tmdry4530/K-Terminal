@@ -9,6 +9,7 @@ import { CRYPTO_UNIVERSE } from './cryptoMarket.js';
 import { getNewsWithOptionalTranslation } from './news.js';
 import { answerQuestion } from './ai.js';
 import { getDartFilings, getSecFilings } from './filings.js';
+import { getEarningsCalendar, getEconomicCalendar } from './calendar.js';
 import { enrichPortfolio } from './portfolio.js';
 import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
 import { createQuoteStream } from './stream.js';
@@ -271,6 +272,18 @@ async function routeApi(req, res, url) {
   if (method === 'GET' && pathname === '/api/options') {
     const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'AAPL';
     const result = await getOptions(symbol);
+    sendJson(res, 200, result);
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/calendar/earnings') {
+    const result = await getEarningsCalendar(url.searchParams.get('from'), url.searchParams.get('to'), userApiKeys);
+    sendJson(res, 200, result);
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/calendar/economic') {
+    const result = await getEconomicCalendar(userApiKeys);
     sendJson(res, 200, result);
     return;
   }

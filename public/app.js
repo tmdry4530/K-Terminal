@@ -34,7 +34,7 @@ const DEFAULT_VIEWS = {
   monitor: {
     left: ['watchlist', 'market-pulse'],
     center: ['monitor-grid', 'chart'],
-    right: ['news', 'data-sources']
+    right: ['news', 'calendar', 'data-sources']
   },
   chart: {
     left: ['watchlist', 'data-sources'],
@@ -44,7 +44,7 @@ const DEFAULT_VIEWS = {
   news: {
     left: ['watchlist', 'market-pulse'],
     center: ['news', 'sec-filings', 'dart-filings'],
-    right: ['ai-assistant', 'data-sources']
+    right: ['ai-assistant', 'calendar', 'data-sources']
   },
   portfolio: {
     left: ['portfolio-summary', 'portfolio-risk'],
@@ -93,7 +93,8 @@ const WIDGETS = {
   settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
   'rates-commodities': { title: 'RATES / FX / COMMODITIES', subtitle: '금리/환율/원자재', render: renderRatesCommodities },
   'monitor-grid': { title: 'MARKET MONITOR', subtitle: '주식/ETF/한국', render: renderMonitorGrid },
-  'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor }
+  'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor },
+  calendar: { title: 'CALENDAR', subtitle: '실적/경제', render: renderCalendar }
 };
 
 function loadLayout() {
@@ -569,6 +570,7 @@ function renderDataSources(body) {
           ${providerRow('Polygon', providers.polygon, '실시간/옵션 권장. API 키 필요')}
           ${providerRow('SEC EDGAR', providers.sec, '공개 API. User-Agent 필요')}
           ${providerRow('OpenDART', providers.dart, '한국 공시. API 키 필요')}
+          ${providerRow('FRED', providers.fred, '미국 경제지표 릴리즈 일정. 무료 키')}
           ${providerRow('Gemini', providers.gemini, '번역/AI 분석. 선택 연결')}
           ${providerRow('Alpaca Paper', providers.alpacaPaper, 'Paper 주문 API')}
         </tbody>
@@ -614,6 +616,28 @@ function renderCryptoMonitor(body) {
       </tbody></table>`;
     $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
   }).catch((error) => { $('#crypto-monitor-body', body).textContent = `데이터 없음: ${error.message}`; });
+}
+
+function renderCalendar(body) {
+  body.innerHTML = '<div id="cal-earn">실적 캘린더 로딩 중</div><div id="cal-econ" style="margin-top:10px">경제 캘린더 로딩 중</div>';
+  const watch = new Set(currentWatchlist());
+  api('/api/calendar/earnings').then((data) => {
+    const rows = (data.events || []).slice(0, 60);
+    $('#cal-earn', body).innerHTML = `
+      <div class="row gap" style="justify-content:space-between"><strong>EARNINGS</strong>${statusBadge(data.status, data.statusMessage)}</div>
+      <div class="scroll" style="max-height:240px; margin-top:4px"><table class="table"><thead><tr><th>Date</th><th>Symbol</th><th>When</th><th>EPS Est</th><th>EPS Act</th></tr></thead><tbody>
+      ${rows.map((event) => `<tr class="${watch.has(event.symbol) ? 'cal-watch' : ''}"><td class="left">${escapeHtml(event.date || '')}</td><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(event.symbol)}">${escapeHtml(event.symbol)}</button></td><td>${escapeHtml(event.hour || '')}</td><td>${fmt(event.epsEstimate)}</td><td>${fmt(event.epsActual)}</td></tr>`).join('') || '<tr><td>데이터 없음</td><td colspan="4"></td></tr>'}
+      </tbody></table></div>`;
+    $$('.symbol-link', $('#cal-earn', body)).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
+  }).catch((error) => { $('#cal-earn', body).textContent = `실적 캘린더 오류: ${error.message}`; });
+  api('/api/calendar/economic').then((data) => {
+    const rows = (data.events || []).slice(0, 40);
+    $('#cal-econ', body).innerHTML = `
+      <div class="row gap" style="justify-content:space-between"><strong>ECONOMIC (US)</strong>${statusBadge(data.status, data.statusMessage)}</div>
+      <div class="scroll" style="max-height:200px; margin-top:4px"><table class="table"><thead><tr><th>Date</th><th>Release</th></tr></thead><tbody>
+      ${rows.map((event) => `<tr><td class="left">${escapeHtml(event.date || '')}</td><td class="left">${escapeHtml(event.name || '')}</td></tr>`).join('') || `<tr><td>${escapeHtml(data.status)}</td><td>${escapeHtml(data.statusMessage || '')}</td></tr>`}
+      </tbody></table></div>`;
+  }).catch((error) => { $('#cal-econ', body).textContent = `경제 캘린더 오류: ${error.message}`; });
 }
 
 function renderChartWidget(body, widgetId, options = {}) {

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:36:28.615Z",
+  "updatedAt": "2026-06-03T13:40:57.610Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -83,20 +83,23 @@
       "id": "G007-crypto-assets",
       "title": "Crypto assets",
       "objective": "Add crypto market module (Binance data-api primary, CoinGecko/Coinbase fallback, Coinbase for KRW pairs); route crypto symbols through snapshot/chart/watchlist with correct status labels; add crypto to market universe and a crypto monitor. Real responses only, no fake numbers.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:36:28.615Z",
-      "startedAt": "2026-06-03T13:36:28.615Z"
+      "updatedAt": "2026-06-03T13:39:53.846Z",
+      "startedAt": "2026-06-03T13:36:28.615Z",
+      "completedAt": "2026-06-03T13:39:53.846Z",
+      "evidence": "Commit 810ba56. cryptoMarket.js (Binance/CoinGecko/Coinbase, dash pairs, CRYPTO_UNIVERSE) routed via marketData getQuote/getChart; /api/meta cryptoUniverse; CRYPTO MONITOR widget + 크립토 tab + stream subscription. 3 new tests (28 total). Live-verified: BTC-USD 66942 실시간 Binance, ETH-USD 실시간, BTC-KRW 102M 지연 CoinGecko, BTC-USD chart 30 candles."
     },
     {
       "id": "G008-economic-earnings-calendar",
       "title": "Economic & earnings calendar",
       "objective": "Add calendar module (Finnhub earnings when key present else API-required, FRED US release dates, honest data-none/api-required labels for uncovered free tiers); calendar widget highlighting the user watchlist symbols.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:40:57.610Z",
+      "startedAt": "2026-06-03T13:40:57.610Z"
     },
     {
       "id": "G009-terminal-ux-accessibility-polish",
@@ -118,5 +121,5 @@
     }
   ],
   "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G007-crypto-assets"
+  "activeGoalId": "G008-economic-earnings-calendar"
 }
