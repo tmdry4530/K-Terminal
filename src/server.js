@@ -18,7 +18,8 @@ import { agentAction, bridgeDashboard, bridgeStatus, getWatchTarget, previewSign
 // ~120 req/min sustained for general API; tight ~6/min on auth to blunt brute force.
 const apiLimiter = createLimiter({ capacity: 120, refillPerSec: 2 });
 const authLimiter = createLimiter({ capacity: 6, refillPerSec: 6 / 60 });
-const quoteStream = createQuoteStream({ fetchSignals: () => recentSignals(30) });
+// Poll a generous inbox tail so a burst of signals between 5s ticks isn't dropped from the feed.
+const quoteStream = createQuoteStream({ fetchSignals: () => recentSignals(200) });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -304,12 +305,14 @@ async function routeApi(req, res, url) {
   }
 
   if (method === 'GET' && pathname === '/api/signals/recent') {
-    sendJson(res, 200, await recentSignals(Number(url.searchParams.get('limit')) || 50));
+    const limit = Math.min(Math.max(1, Number(url.searchParams.get('limit')) || 50), 200);
+    sendJson(res, 200, await recentSignals(limit));
     return;
   }
 
   if (method === 'GET' && pathname === '/api/signals/executions') {
-    sendJson(res, 200, await recentExecutions(Number(url.searchParams.get('limit')) || 40));
+    const limit = Math.min(Math.max(1, Number(url.searchParams.get('limit')) || 40), 200);
+    sendJson(res, 200, await recentExecutions(limit));
     return;
   }
 

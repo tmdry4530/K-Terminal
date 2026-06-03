@@ -171,6 +171,24 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
 }
 
+// Only allow http/https hrefs from remote-derived URLs (signals, news, filings). escapeHtml
+// alone does NOT neutralize a javascript:/data: scheme, which would be a click-XSS vector.
+function safeHttpUrl(value) {
+  if (typeof value !== 'string') return '';
+  try {
+    const url = new URL(value, window.location.origin);
+    return (url.protocol === 'http:' || url.protocol === 'https:') ? url.href : '';
+  } catch { return ''; }
+}
+
+function extLink(url, label, extraClass = '') {
+  const safe = safeHttpUrl(url);
+  const cls = extraClass ? ` class="${extraClass}"` : '';
+  return safe
+    ? `<a${cls} href="${escapeHtml(safe)}" target="_blank" rel="noreferrer noopener">${escapeHtml(label)}</a>`
+    : `<span${cls}>${escapeHtml(label)}</span>`;
+}
+
 function statusBadge(status, message = '') {
   const text = escapeHtml(status || '데이터 없음');
   const statusClass = status === '실시간' || status === '근실시간' || status === '정상' ? 'ok' : status === '지연 데이터' || status === 'API 필요' || status === '일부 가격 데이터 없음' ? 'warn' : 'err';
@@ -761,27 +779,28 @@ function renderExecutionGate(body) {
     </div>
     <div class="muted" style="margin-top:6px">Binance: ${env.BINANCE_API_KEY ? '키✓' : '키✗'} / ${escapeHtml(env.BINANCE_FUTURES_ENV || '?')} · caps ${escapeHtml(JSON.stringify(caps.allowed_symbols || caps.allowedSymbols || '—'))} margin ${escapeHtml(String(caps.max_margin_pct ?? caps.margin_cap ?? '—'))}</div>
     <div class="row gap" style="margin-top:8px"><button id="gate-pause">PAUSE</button><button id="gate-resume">RESUME</button><span id="gate-action" class="muted"></span></div>
-    <div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px"><strong>선택 시그널 게이트 PREVIEW</strong></div>
+    ` : `<div class="muted" style="margin-top:6px">${escapeHtml(status.statusMessage || 'auto-dom 브릿지 실행 확인 (기본 127.0.0.1:8765, ingest_only).')}</div>`}
+    <div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px"><strong>선택 시그널 + 근거</strong></div>
     ${state.activeSignal ? `
       <div class="muted" style="margin-top:4px">${escapeHtml(state.activeSignal.symbol || '')} ${escapeHtml(state.activeSignal.direction || '')} · ${escapeHtml((state.activeSignal.eventType || '').replace(/_/g, ' '))} · conf ${state.activeSignal.confidenceScore ?? '-'} urg ${state.activeSignal.urgencyScore ?? '-'}</div>
       <div style="margin-top:6px"><strong>근거 (수집 뉴스/출처)</strong></div>
       ${evidenceHtml(state.activeSignal.signal)}
-      <button id="gate-preview" style="margin-top:6px">PREVIEW (부작용 없음)</button>
+      <button id="gate-preview" style="margin-top:6px" ${online ? '' : 'disabled title="브릿지 오프라인 — preview 불가"'}>PREVIEW (게이트 판정, 부작용 없음)</button>
       <div id="gate-preview-out" style="margin-top:6px"></div>`
-      : '<div class="muted" style="margin-top:4px">SIGNALS 패널에서 시그널을 선택하면 근거가 표시됩니다.</div>'}
-    ` : `<div class="muted" style="margin-top:6px">${escapeHtml(status.statusMessage || 'auto-dom 브릿지 실행 확인 (기본 127.0.0.1:8765, ingest_only).')}</div>`}`;
-  if (!online) return;
-  $('#gate-pause', body)?.addEventListener('click', async () => {
-    const result = await api('/api/autodom/agent/actions', { method: 'POST', body: { action: 'pause_trading', reason: 'operator pause from terminal', requested_by: 'k-terminal' } }).catch((e) => ({ data: { error: e.message } }));
-    $('#gate-action', body).textContent = JSON.stringify(result.data ?? result);
-    state.autodom = null; renderWorkspace();
-  });
-  $('#gate-resume', body)?.addEventListener('click', async () => {
-    if (!window.confirm('거래 재개(kill-switch 해제)합니다. 계속할까요?')) return;
-    const result = await api('/api/autodom/agent/actions', { method: 'POST', body: { action: 'resume_trading', operator_approved: true, reason: 'operator resume from terminal' } }).catch((e) => ({ data: { error: e.message } }));
-    $('#gate-action', body).textContent = JSON.stringify(result.data ?? result);
-    state.autodom = null; renderWorkspace();
-  });
+      : '<div class="muted" style="margin-top:4px">SIGNALS 패널에서 시그널을 선택하면 근거가 표시됩니다.</div>'}`;
+  if (online) {
+    $('#gate-pause', body)?.addEventListener('click', async () => {
+      const result = await api('/api/autodom/agent/actions', { method: 'POST', body: { action: 'pause_trading', reason: 'operator pause from terminal', requested_by: 'k-terminal' } }).catch((e) => ({ data: { error: e.message } }));
+      $('#gate-action', body).textContent = JSON.stringify(result.data ?? result);
+      state.autodom = null; renderWorkspace();
+    });
+    $('#gate-resume', body)?.addEventListener('click', async () => {
+      if (!window.confirm('거래 재개(kill-switch 해제)합니다. 계속할까요?')) return;
+      const result = await api('/api/autodom/agent/actions', { method: 'POST', body: { action: 'resume_trading', operator_approved: true, reason: 'operator resume from terminal' } }).catch((e) => ({ data: { error: e.message } }));
+      $('#gate-action', body).textContent = JSON.stringify(result.data ?? result);
+      state.autodom = null; renderWorkspace();
+    });
+  }
   $('#gate-preview', body)?.addEventListener('click', async () => {
     const out = $('#gate-preview-out', body);
     out.textContent = 'preview 중...';
@@ -812,7 +831,7 @@ function evidenceHtml(signal) {
     ${evidence.map((e) => `<div class="evidence-item">
       <div><span class="badge">${escapeHtml(e.source_type || '')}</span> <strong>${escapeHtml(e.source_label || '')}</strong></div>
       <div class="muted">${escapeHtml(e.summary || '')}</div>
-      ${e.url ? `<a href="${escapeHtml(e.url)}" target="_blank" rel="noreferrer">출처 →</a>` : ''}
+      ${e.url ? extLink(e.url, '출처 →') : ''}
     </div>`).join('') || '<div class="muted">근거 항목 없음</div>'}
     ${notes.length ? `<div class="muted" style="margin-top:4px">⚠ risk: ${escapeHtml(notes.join(', '))}</div>` : ''}
   </div>`;
@@ -828,10 +847,11 @@ function renderPositions(body) {
     host.innerHTML = executions.map((e, index) => {
       const signal = e.signal || state.signals.find((s) => s.signalId === e.signalId)?.signal || null;
       const decClass = (e.decision === 'sent' || e.decision === 'approved') ? 'up' : e.decision === 'rejected' ? 'down' : 'flat';
+      const decLabel = e.decision === 'ingested' ? '수신 (주문없음)' : (e.decision || '?'); // ingest_only: stored, not executed
       return `<div class="position-item">
         <div class="row" style="justify-content:space-between">
           <span><strong>${escapeHtml(e.symbol || '?')}</strong> ${e.direction ? `<span class="${e.direction === 'LONG' ? 'up' : 'down'}">${escapeHtml(e.direction)}</span>` : ''}</span>
-          <span class="${decClass}">${escapeHtml(e.decision || '?')} <span class="badge">${escapeHtml(e.source)}</span></span>
+          <span class="${decClass}">${escapeHtml(decLabel)} <span class="badge">${escapeHtml(e.source)}</span></span>
         </div>
         <div class="muted">${escapeHtml(String(e.time || '').replace('T', ' ').slice(0, 19))}${e.reasons?.length ? ' · ' + escapeHtml(e.reasons.join(', ')) : ''}</div>
         <button class="pos-evidence-toggle" data-index="${index}">근거 보기 ▾</button>
@@ -1133,7 +1153,7 @@ function renderNews(body, widgetId, options = {}) {
   }
   list.innerHTML = (state.news.items || []).map((item) => `
     <article class="news-item">
-      <a class="news-title" href="${escapeHtml(item.url)}" target="_blank" rel="noreferrer">${escapeHtml(item.title)}</a>
+      ${extLink(item.url, item.title, 'news-title')}
       <div class="news-ko">${item.koTitle ? escapeHtml(item.koTitle) : '번역 데이터 없음 / Gemini API 필요'}</div>
       <div class="muted">${escapeHtml(item.koSummary || item.summary || '')}</div>
       <div class="news-meta">
@@ -1153,7 +1173,7 @@ function renderSecFilings(body) {
     loadSec().then(renderWorkspace).catch((error) => { list.textContent = `SEC 데이터 없음: ${error.message}`; });
     return;
   }
-  list.innerHTML = (state.sec.filings || []).map((f) => `<div class="filing-item"><div><strong>${escapeHtml(f.form)}</strong> ${escapeHtml(f.description || '')}</div><div class="muted">${escapeHtml(f.filingDate || '')} / ${escapeHtml(f.reportDate || '')}</div>${f.url ? `<a target="_blank" rel="noreferrer" href="${escapeHtml(f.url)}">원문</a>` : ''}</div>`).join('') || `<div class="muted">${escapeHtml(state.sec.statusMessage || 'SEC 데이터 없음')}</div>`;
+  list.innerHTML = (state.sec.filings || []).map((f) => `<div class="filing-item"><div><strong>${escapeHtml(f.form)}</strong> ${escapeHtml(f.description || '')}</div><div class="muted">${escapeHtml(f.filingDate || '')} / ${escapeHtml(f.reportDate || '')}</div>${f.url ? extLink(f.url, '원문') : ''}</div>`).join('') || `<div class="muted">${escapeHtml(state.sec.statusMessage || 'SEC 데이터 없음')}</div>`;
 }
 
 function renderDartFilings(body) {
@@ -1166,7 +1186,7 @@ function renderDartFilings(body) {
     loadDart().then(renderWorkspace).catch((error) => { list.textContent = `DART 데이터 없음: ${error.message}`; });
     return;
   }
-  list.innerHTML = (state.dart.filings || []).map((f) => `<div class="filing-item"><div><strong>${escapeHtml(f.reportName)}</strong></div><div class="muted">${escapeHtml(f.corpName || '')} / ${escapeHtml(f.filingDate || '')} / ${escapeHtml(f.submitter || '')}</div>${f.url ? `<a target="_blank" rel="noreferrer" href="${escapeHtml(f.url)}">DART 원문</a>` : ''}</div>`).join('') || `<div class="muted">${escapeHtml(state.dart.statusMessage || 'DART 데이터 없음')}</div>`;
+  list.innerHTML = (state.dart.filings || []).map((f) => `<div class="filing-item"><div><strong>${escapeHtml(f.reportName)}</strong></div><div class="muted">${escapeHtml(f.corpName || '')} / ${escapeHtml(f.filingDate || '')} / ${escapeHtml(f.submitter || '')}</div>${f.url ? extLink(f.url, 'DART 원문') : ''}</div>`).join('') || `<div class="muted">${escapeHtml(state.dart.statusMessage || 'DART 데이터 없음')}</div>`;
 }
 
 function requireLoginBody(body) {

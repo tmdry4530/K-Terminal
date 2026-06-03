@@ -188,9 +188,14 @@ async function readRuntimeAudit(limit, auditRoot) {
   const stats = await Promise.all(dirents.filter((d) => d.isDirectory()).map(async (d) => {
     try { return { name: d.name, mtime: (await fs.stat(path.join(root, d.name))).mtimeMs }; } catch { return null; }
   }));
-  const recent = stats.filter(Boolean).sort((a, b) => b.mtime - a.mtime).slice(0, limit);
+  // Scan more dirs than `limit` so approved decisions aren't crowded out of the window by
+  // a recent burst of rejections (rejections live in submit_rejection.json, not submit_decision).
+  const recent = stats.filter(Boolean).sort((a, b) => b.mtime - a.mtime).slice(0, limit * 3);
   const records = await Promise.all(recent.map(async (d) => {
-    try { return normalizeExecutionRecord(JSON.parse(await fs.readFile(path.join(root, d.name, 'submit_decision.json'), 'utf8')), 'runtime'); } catch { return null; }
+    for (const file of ['submit_decision.json', 'submit_rejection.json']) {
+      try { return normalizeExecutionRecord(JSON.parse(await fs.readFile(path.join(root, d.name, file), 'utf8')), 'runtime'); } catch { /* try next record type */ }
+    }
+    return null;
   }));
   return records.filter(Boolean);
 }
