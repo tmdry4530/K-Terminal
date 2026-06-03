@@ -1,4 +1,5 @@
 import { config } from './config.js';
+import { createCache } from './cache.js';
 
 export const DATA_STATUS = Object.freeze({
   REALTIME: '실시간',
@@ -362,7 +363,24 @@ function providerOrder() {
   return [config.finnhubApiKey ? 'finnhub' : null, config.twelveDataApiKey ? 'twelve' : null, 'yahoo'].filter(Boolean);
 }
 
+// Cache buckets keyed by provider availability so a key-holder's better data is never
+// served to anonymous callers. Error/empty results get a short TTL so recovery is quick.
+function keyTag(userApiKeys = {}) {
+  const finnhub = (userApiKeys.finnhub || config.finnhubApiKey) ? 'f' : '';
+  const twelve = (userApiKeys.twelvedata || config.twelveDataApiKey) ? 't' : '';
+  return `${config.marketDataProvider}:${finnhub}${twelve}`;
+}
+
+const quoteCache = createCache({ ttlMs: (q) => (q && q.price !== null ? 4000 : 1000), staleMs: 4000 });
+const chartCache = createCache({ ttlMs: (c) => (c && c.candles?.length ? 45000 : 5000), staleMs: 30000 });
+const optionsCache = createCache({ ttlMs: (o) => (o && o.options?.length ? 60000 : 5000), staleMs: 30000 });
+
 export async function getQuote(symbol, userApiKeys = {}) {
+  const normalized = normalizeSymbol(symbol);
+  return quoteCache.get(`quote:${normalized}:${keyTag(userApiKeys)}`, () => fetchQuote(symbol, userApiKeys));
+}
+
+async function fetchQuote(symbol, userApiKeys = {}) {
   const normalized = normalizeSymbol(symbol);
   const order = providerOrder();
   const errors = [];
@@ -386,6 +404,13 @@ export async function getQuote(symbol, userApiKeys = {}) {
 }
 
 export async function getChart(symbol, range = '1Y', interval = '1D', userApiKeys = {}) {
+  const normalized = normalizeSymbol(symbol);
+  const safeRange = RANGE_MAP[range] ? range : '1Y';
+  const safeInterval = INTERVAL_MAP_YAHOO[interval] ? interval : '1D';
+  return chartCache.get(`chart:${normalized}:${safeRange}:${safeInterval}:${keyTag(userApiKeys)}`, () => fetchChart(symbol, range, interval, userApiKeys));
+}
+
+async function fetchChart(symbol, range = '1Y', interval = '1D', userApiKeys = {}) {
   const normalized = normalizeSymbol(symbol);
   const safeRange = RANGE_MAP[range] ? range : '1Y';
   const safeInterval = INTERVAL_MAP_YAHOO[interval] ? interval : '1D';
@@ -421,6 +446,11 @@ export async function getSnapshot(symbols, userApiKeys = {}) {
 }
 
 export async function getOptions(symbol) {
+  const normalized = normalizeSymbol(symbol).replace(/\.(KS|KQ)$/u, '');
+  return optionsCache.get(`options:${normalized}`, () => fetchOptions(symbol));
+}
+
+async function fetchOptions(symbol) {
   const normalized = normalizeSymbol(symbol).replace(/\.(KS|KQ)$/u, '');
   if (!normalized || normalized.startsWith('^')) {
     return { symbol: normalizeSymbol(symbol), options: [], status: DATA_STATUS.NO_DATA, statusMessage: '옵션 체인을 지원하지 않는 심볼입니다.', source: null };

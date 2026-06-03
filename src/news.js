@@ -1,5 +1,8 @@
 import { config } from './config.js';
 import { DATA_STATUS } from './marketData.js';
+import { createCache } from './cache.js';
+
+const newsCache = createCache({ ttlMs: (n) => (n && n.items?.length ? 120000 : 10000), staleMs: 60000 });
 
 const POSITIVE = ['beat', 'beats', 'gain', 'gains', 'rally', 'surge', 'surges', 'upgrade', 'upgraded', 'strong', 'growth', 'profit', 'record', 'bullish', 'raises', 'outperform'];
 const NEGATIVE = ['miss', 'misses', 'fall', 'falls', 'drop', 'drops', 'plunge', 'plunges', 'lawsuit', 'probe', 'cut', 'cuts', 'downgrade', 'downgraded', 'weak', 'loss', 'bearish', 'warning'];
@@ -135,6 +138,12 @@ async function fetchYahooRss(symbol) {
 
 export async function fetchNews(symbol, userApiKeys = {}) {
   const normalized = String(symbol || 'AAPL').trim().toUpperCase().replace(/\.(KS|KQ)$/u, '');
+  const tag = (userApiKeys.finnhub || config.finnhubApiKey) ? 'f' : '';
+  return newsCache.get(`news:${normalized}:${tag}`, () => fetchNewsUncached(symbol, userApiKeys));
+}
+
+async function fetchNewsUncached(symbol, userApiKeys = {}) {
+  const normalized = String(symbol || 'AAPL').trim().toUpperCase().replace(/\.(KS|KQ)$/u, '');
   const errors = [];
   if (userApiKeys.finnhub || config.finnhubApiKey) {
     try {
@@ -183,7 +192,9 @@ export async function translateWithGemini(items, apiKey = config.geminiApiKey, m
 }
 
 export async function getNewsWithOptionalTranslation(symbol, userApiKeys = {}) {
-  const news = await fetchNews(symbol, userApiKeys);
+  // fetchNews may return a cached (shared) object; clone before translation mutates it.
+  const cached = await fetchNews(symbol, userApiKeys);
+  const news = { ...cached, items: [...(cached.items || [])] };
   const geminiKey = userApiKeys.gemini || config.geminiApiKey;
   if (geminiKey && news.items.length) {
     try {

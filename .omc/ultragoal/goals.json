@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:12:17.687Z",
+  "updatedAt": "2026-06-03T13:18:02.429Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -23,19 +23,23 @@
       "id": "G002-security-hardening",
       "title": "Security hardening",
       "objective": "Add security response headers (CSP for vanilla SVG/inline-style frontend, nosniff, frame-options, referrer-policy, permissions-policy, HSTS on secure), in-memory token-bucket rate limiting (strict auth keyed IP+email, looser API, 429+Retry-After), and Origin/Referer CSRF check on all mutating requests. Tests for limiter + csrf.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:16:22.916Z",
+      "startedAt": "2026-06-03T13:16:22.214Z",
+      "completedAt": "2026-06-03T13:16:22.916Z",
+      "evidence": "Commit 580686b. src/security.js (CSP/headers, token-bucket limiter, clientIp+TRUST_PROXY, sameOriginOk CSRF) wired into server.js. 12 tests pass. Live-verified: headers present, evil-Origin=403, same-origin register=201, auth brute force=429 after 6."
     },
     {
       "id": "G003-caching-resilience-layer",
       "title": "Caching & resilience layer",
       "objective": "Add dependency-free in-memory TTL cache with stale-while-revalidate and single-flight de-duplication; wrap upstream quote/chart/news/fx fetches so parallel same-symbol calls collapse to one upstream request. Short TTL quotes, longer charts. Tests.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:18:02.429Z",
+      "startedAt": "2026-06-03T13:18:02.429Z"
     },
     {
       "id": "G004-multi-currency-fx-normalization",
@@ -101,5 +105,6 @@
       "updatedAt": "2026-06-03T13:07:33.225Z"
     }
   ],
-  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate"
+  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
+  "activeGoalId": "G003-caching-resilience-layer"
 }
