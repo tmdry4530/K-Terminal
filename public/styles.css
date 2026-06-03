@@ -49,6 +49,17 @@ a:hover { text-decoration: underline; }
 .up { color: var(--green); }
 .down { color: var(--red); }
 .flat { color: var(--muted); }
+
+.clock-wrap { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.stream-badge { font-size: 10px; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); }
+.stream-badge.live { color: var(--green); border-color: rgba(40,209,124,.5); }
+.stream-badge.reconnect { color: var(--amber); border-color: rgba(244,184,74,.5); }
+
+@keyframes flashUp { from { background: rgba(40,209,124,.45); } to { background: transparent; } }
+@keyframes flashDown { from { background: rgba(240,91,101,.45); } to { background: transparent; } }
+.flash-up { animation: flashUp .5s ease-out; }
+.flash-down { animation: flashDown .5s ease-out; }
+@media (prefers-reduced-motion: reduce) { .flash-up, .flash-down { animation: none; } }
 .badge { display: inline-block; padding: 1px 5px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); font-size: 10px; white-space: nowrap; }
 .badge.ok { color: var(--green); border-color: rgba(40,209,124,.4); }
 .badge.warn { color: var(--amber); border-color: rgba(244,184,74,.4); }

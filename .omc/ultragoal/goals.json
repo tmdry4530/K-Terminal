@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:22:07.624Z",
+  "updatedAt": "2026-06-03T13:27:46.878Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -47,20 +47,23 @@
       "id": "G004-multi-currency-fx-normalization",
       "title": "Multi-currency FX normalization",
       "objective": "Add fx module (Yahoo KRW=X live-ish + open.er-api/frankfurter fallback, cached); rewrite portfolio enrichment to convert each holding into base currency before summing (fixes USD+KRW raw-sum bug); separate capital gain from currency gain; add exposure-by-currency; surface base-currency totals + FX status in widgets. Tests for conversion math.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:22:07.624Z",
-      "startedAt": "2026-06-03T13:22:07.624Z"
+      "updatedAt": "2026-06-03T13:26:31.308Z",
+      "startedAt": "2026-06-03T13:22:07.624Z",
+      "completedAt": "2026-06-03T13:26:31.308Z",
+      "evidence": "Commit aec86a9. fx.js (Yahoo/er-api/frankfurter, cached, identity+null-safe). portfolio.js converts to base before summing, native+base values, capital/currency gain split, injectable deps. store purchaseFxRate. app.js base-currency UI. 7 new tests (25 total). Live-verified USD+KRW total=3153.9 USD base (not raw 3.6M sum), real KRW fxRate 0.0007."
     },
     {
       "id": "G005-real-time-streaming-via-sse",
       "title": "Real-time streaming via SSE",
       "objective": "Add multiplexed /api/stream Server-Sent Events endpoint with heartbeat and cleanup; server poller refreshes index/watchlist snapshot on interval via cache and pushes to subscribers; client EventSource with auto-reconnect, flash-on-update (respect prefers-reduced-motion), live connection-status badge; wire SSE into graceful shutdown.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:27:46.878Z",
+      "startedAt": "2026-06-03T13:27:46.878Z"
     },
     {
       "id": "G006-price-indicator-alerts",
@@ -109,5 +112,5 @@
     }
   ],
   "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G004-multi-currency-fx-normalization"
+  "activeGoalId": "G005-real-time-streaming-via-sse"
 }

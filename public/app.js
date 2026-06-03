@@ -19,7 +19,10 @@ const state = {
   chat: [],
   dragging: null,
   layout: loadLayout(),
-  resizeObserver: null
+  resizeObserver: null,
+  priceMap: new Map(),
+  stream: null,
+  streamState: 'OFF'
 };
 
 const DEFAULT_VIEWS = {
@@ -379,18 +382,102 @@ async function saveWatchlist(list) {
   }
   await loadWatchlistQuotes();
   renderWorkspace();
+  startStream(); // resubscribe the live stream to the updated symbol set
 }
 
 function renderIndexStrip() {
   const container = $('#index-strip');
   const quotes = state.snapshot?.quotes || [];
-  container.innerHTML = quotes.map((q) => `
-    <div class="index-card" title="${escapeHtml(q.statusMessage || '')}">
+  const reduced = prefersReducedMotion();
+  container.innerHTML = quotes.map((q) => {
+    const prev = state.priceMap.get(q.symbol);
+    const flash = !reduced && prev != null && q.price != null && q.price !== prev ? (q.price > prev ? 'flash-up' : 'flash-down') : '';
+    return `
+    <div class="index-card ${flash}" title="${escapeHtml(q.statusMessage || '')}">
       <div class="label"><span>${escapeHtml(labelFor(q.symbol))}</span><span>${escapeHtml(q.status || '')}</span></div>
       <div class="value">${fmt(q.price)}</div>
       <div class="change ${clsChange(q.changePercent)}">${signed(q.change)} / ${signed(q.changePercent, '%')}</div>
-    </div>
-  `).join('') || '<div class="index-card"><div class="label">데이터 없음</div></div>';
+    </div>`;
+  }).join('') || '<div class="index-card"><div class="label">데이터 없음</div></div>';
+}
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+function cssAttrValue(value) {
+  return String(value).replace(/["\\]/g, '\\$&');
+}
+
+function flashCell(el, dir) {
+  if (!dir || prefersReducedMotion()) return;
+  el.classList.remove('flash-up', 'flash-down');
+  void el.offsetWidth; // restart the animation
+  el.classList.add(dir === 'up' ? 'flash-up' : 'flash-down');
+}
+
+// In-place live update of any table cell tagged with data-live-price / data-live-chg,
+// with a directional flash. Updates priceMap last so renderIndexStrip (called first)
+// still sees the previous price for its own flash.
+function applyLiveQuotes(quotes) {
+  for (const q of quotes || []) {
+    const prev = state.priceMap.get(q.symbol);
+    const dir = prev != null && q.price != null && q.price !== prev ? (q.price > prev ? 'up' : 'down') : '';
+    if (q.price != null) state.priceMap.set(q.symbol, q.price);
+    const sel = cssAttrValue(q.symbol);
+    $$(`[data-live-price="${sel}"]`).forEach((el) => { el.textContent = fmt(q.price); flashCell(el, dir); });
+    $$(`[data-live-chg="${sel}"]`).forEach((el) => {
+      el.textContent = pct(q.changePercent);
+      el.classList.remove('up', 'down', 'flat');
+      el.classList.add(clsChange(q.changePercent));
+      flashCell(el, dir);
+    });
+  }
+}
+
+function setStreamState(status) {
+  state.streamState = status;
+  const el = $('#stream-state');
+  if (!el) return;
+  const map = { LIVE: ['live', 'LIVE'], RECONNECT: ['reconnect', 'RECONNECT'], OFF: ['', 'OFF'] };
+  const [cls, text] = map[status] || map.OFF;
+  el.className = `stream-badge ${cls}`.trim();
+  el.textContent = text;
+}
+
+function mergeStreamSnapshot(snap) {
+  const quotes = snap.quotes || [];
+  const map = new Map(quotes.map((q) => [q.symbol, q]));
+  const universe = state.meta?.marketUniverse?.map((item) => item.symbol) || [];
+  state.snapshot = {
+    updatedAt: snap.updatedAt,
+    provider: snap.provider,
+    quotes: universe.map((symbol) => map.get(symbol)).filter(Boolean)
+  };
+  const watchlist = new Set(currentWatchlist());
+  state.watchlistQuotes = { updatedAt: snap.updatedAt, quotes: quotes.filter((q) => watchlist.has(q.symbol)) };
+}
+
+function startStream() {
+  if (typeof EventSource === 'undefined') return;
+  stopStream();
+  const symbols = currentWatchlist().join(',');
+  const es = new EventSource(`/api/stream?symbols=${encodeURIComponent(symbols)}`);
+  state.stream = es;
+  es.addEventListener('open', () => setStreamState('LIVE'));
+  es.addEventListener('snapshot', (event) => {
+    let snap;
+    try { snap = JSON.parse(event.data); } catch { return; }
+    mergeStreamSnapshot(snap);
+    renderIndexStrip();              // flashes the strip against the previous priceMap
+    applyLiveQuotes(snap.quotes);    // flashes table cells and advances priceMap
+    setStreamState('LIVE');
+  });
+  es.onerror = () => setStreamState('RECONNECT'); // EventSource reconnects automatically
+}
+
+function stopStream() {
+  if (state.stream) { state.stream.close(); state.stream = null; }
 }
 
 function labelFor(symbol) {
@@ -451,7 +538,7 @@ function renderWatchlist(body) {
       <tbody>
       ${quotes.map((q) => `<tr>
         <td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td>
-        <td>${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}">${pct(q.changePercent)}</td><td>${statusBadge(q.status, q.statusMessage)}</td>
+        <td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${pct(q.changePercent)}</td><td>${statusBadge(q.status, q.statusMessage)}</td>
         <td><button class="remove-watch" data-symbol="${escapeHtml(q.symbol)}">DEL</button></td>
       </tr>`).join('')}
       </tbody>
@@ -499,7 +586,7 @@ function renderMonitorGrid(body) {
   api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
     $('#monitor-grid-body', body).innerHTML = `
       <table class="table"><thead><tr><th>Symbol</th><th>Px</th><th>Chg</th><th>Vol</th><th>Status</th></tr></thead><tbody>
-      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td>${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}">${pct(q.changePercent)}</td><td>${fmt(q.volume, 0)}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
+      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${pct(q.changePercent)}</td><td>${fmt(q.volume, 0)}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
       </tbody></table>`;
     $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
   }).catch((error) => { $('#monitor-grid-body', body).textContent = `데이터 없음: ${error.message}`; });
@@ -1076,7 +1163,9 @@ async function init() {
     await loadSnapshot();
     renderWorkspace();
     setTimeout(() => Promise.allSettled([loadWatchlistQuotes(), loadChart(), loadNews(), loadSec()]).then(renderWorkspace), 50);
-    setInterval(() => loadSnapshot().then(renderWorkspace).catch(() => {}), 60_000);
+    startStream();
+    // Fallback polling only kicks in when the live SSE stream is not connected.
+    setInterval(() => { if (state.streamState !== 'LIVE') loadSnapshot().then(renderWorkspace).catch(() => {}); }, 60_000);
   } catch (error) {
     setStatus(`초기화 오류: ${error.message}`);
   }

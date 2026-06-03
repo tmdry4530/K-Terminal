@@ -10,10 +10,12 @@ import { answerQuestion } from './ai.js';
 import { getDartFilings, getSecFilings } from './filings.js';
 import { enrichPortfolio } from './portfolio.js';
 import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
+import { createQuoteStream } from './stream.js';
 
 // ~120 req/min sustained for general API; tight ~6/min on auth to blunt brute force.
 const apiLimiter = createLimiter({ capacity: 120, refillPerSec: 2 });
 const authLimiter = createLimiter({ capacity: 6, refillPerSec: 6 / 60 });
+const quoteStream = createQuoteStream();
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -154,6 +156,13 @@ async function routeApi(req, res, url) {
   const limit = isAuthEndpoint ? authLimiter(`auth:${ip}`) : apiLimiter(`api:${ip}`);
   if (!limit.ok) {
     sendJson(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.', retryAfter: limit.retryAfter }, { 'Retry-After': String(limit.retryAfter) });
+    return;
+  }
+
+  // SSE quote stream: writes its own headers and stays open, so handle before JSON routing.
+  if (method === 'GET' && pathname === '/api/stream') {
+    const symbols = (url.searchParams.get('symbols') || '').split(',').map((s) => s.trim()).filter(Boolean);
+    quoteStream.addClient(req, res, symbols);
     return;
   }
 
@@ -391,6 +400,7 @@ server.on('connection', (socket) => {
 
 // Tasks other modules register to run during graceful shutdown (e.g. closing SSE streams).
 export const shutdownTasks = new Set();
+shutdownTasks.add(() => quoteStream.closeAll());
 
 let shuttingDown = false;
 async function shutdown(signal) {
