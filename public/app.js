@@ -404,7 +404,7 @@ function renderIndexStrip() {
     const flash = !reduced && prev != null && q.price != null && q.price !== prev ? (q.price > prev ? 'flash-up' : 'flash-down') : '';
     return `
     <div class="index-card ${flash}" title="${escapeHtml(q.statusMessage || '')}">
-      <div class="label"><span>${escapeHtml(labelFor(q.symbol))}</span><span>${escapeHtml(q.status || '')}</span></div>
+      <div class="label"><span class="ix-label">${escapeHtml(labelFor(q.symbol))}</span><span class="ix-status">${escapeHtml(q.status || '')}</span></div>
       <div class="value">${fmt(q.price)}</div>
       <div class="change ${clsChange(q.changePercent)}">${dirArrow(q.changePercent)} ${signed(q.change)} / ${signed(q.changePercent, '%')}</div>
     </div>`;

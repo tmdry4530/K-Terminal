@@ -33,7 +33,7 @@ a:hover { text-decoration: underline; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; background: #11202b; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; }
 
-#app-shell { height: 100vh; display: grid; grid-template-rows: var(--topbar-height) 54px 34px minmax(0, 1fr) 26px; }
+#app-shell { height: 100vh; display: grid; grid-template-rows: var(--topbar-height) 60px 34px minmax(0, 1fr) 26px; }
 .topbar { display: grid; grid-template-columns: auto auto minmax(280px, 1fr) auto auto auto; align-items: center; gap: 8px; height: var(--topbar-height); padding: 0 10px; border-bottom: 1px solid var(--line); background: #020303; }
 .brand { font-weight: 800; letter-spacing: .08em; font-size: 13px; white-space: nowrap; }
 .global-menu { display: flex; gap: 4px; align-items: center; }
@@ -48,9 +48,11 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 
 .index-strip { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(112px, 1fr); gap: 1px; background: #020303; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; }
 .index-card { padding: 5px 8px; background: #071014; border-right: 1px solid var(--line); min-width: 112px; }
-.index-card .label { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; }
-.index-card .value { font-size: 13px; font-weight: 800; margin-top: 2px; }
-.index-card .change { font-size: 11px; margin-top: 1px; }
+.index-card .label { display: flex; justify-content: space-between; gap: 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; flex-wrap: nowrap; }
+.index-card .ix-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.index-card .ix-status { white-space: nowrap; flex: 0 0 auto; }
+.index-card .value { font-size: 13px; font-weight: 800; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.index-card .change { font-size: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .up { color: var(--green); }
 .down { color: var(--red); }
 .flat { color: var(--muted); }
