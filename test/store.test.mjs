@@ -24,3 +24,14 @@ test('JsonStore creates users, sessions, settings and holdings', async () => {
   assert.equal(portfolio.holdings.length, 1);
   assert.equal(portfolio.holdings[0].symbol, 'AAPL');
 });
+
+test('ensureSingleUser is idempotent and returns one local operator account', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kt-single-'));
+  const store = new JsonStore(path.join(dir, 'db.json'));
+  await store.init();
+  const first = await store.ensureSingleUser();
+  const second = await store.ensureSingleUser();
+  assert.equal(first.id, second.id);
+  assert.equal(first.email, 'local@k-terminal.local');
+  assert.equal(Object.keys(store.db.users).length, 1);
+});

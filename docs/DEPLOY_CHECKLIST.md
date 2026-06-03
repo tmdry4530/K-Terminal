@@ -34,6 +34,7 @@ cp .env.example .env
 #   AUTO_DOM_LIVE_AUDIT_PATH=../auto-dom/var/orders/live_audit.jsonl
 #   AUTO_DOM_AUDIT_ROOT=../auto-dom/var/bridge/audit
 #   SECRET_KEY=<강한 난수 32자+>   (운영 시 필수, 미설정 시 NODE_ENV=production 부팅 거부)
+#   SINGLE_USER_MODE=true          (본인 전용/사설망: 로그인 없이 모든 기능 사용)
 npm start            # http://localhost:8080
 ```
 - [ ] `시그널` 탭: EXECUTION GATE에 `MODE · INGEST_ONLY`(또는 현재 모드) 표시, 오프라인 아님

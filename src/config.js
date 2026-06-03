@@ -30,6 +30,9 @@ export const config = Object.freeze({
   sessionDays: int(process.env.SESSION_DAYS, 7),
   cookieSecure: bool(process.env.COOKIE_SECURE, false),
   trustProxy: bool(process.env.TRUST_PROXY, false),
+  // Single-user mode: auto-authenticate every request as one local user, no login needed.
+  // ONLY for a private, trusted, single-operator deployment (e.g. your own tailnet).
+  singleUserMode: bool(process.env.SINGLE_USER_MODE, false),
   marketDataProvider: process.env.MARKET_DATA_PROVIDER || 'auto',
   finnhubApiKey: process.env.FINNHUB_API_KEY || '',
   twelveDataApiKey: process.env.TWELVE_DATA_API_KEY || '',

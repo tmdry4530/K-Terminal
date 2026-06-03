@@ -84,6 +84,7 @@ async function readBody(req) {
 }
 
 async function getCurrentUser(req) {
+  if (config.singleUserMode) return await store.ensureSingleUser(); // no login needed on a private instance
   const cookies = parseCookies(req.headers.cookie || '');
   return await store.getUserBySessionToken(cookies.kt_session);
 }
@@ -186,6 +187,7 @@ async function routeApi(req, res, url) {
       app: 'K Terminal Finance',
       time: new Date().toISOString(),
       authenticated: Boolean(user),
+      singleUser: config.singleUserMode,
       user: user ? store.safeUser(user) : null,
       providers: providerFlags(),
       marketUniverse: MARKET_UNIVERSE,

@@ -343,7 +343,12 @@ async function loadMeta() {
   if (state.user?.settings?.layout && !localStorage.getItem('kt.layout')) {
     state.layout = state.user.settings.layout;
   }
-  $('#login-open').textContent = state.user ? state.user.email.split('@')[0].toUpperCase() : 'LOGIN';
+  if (state.meta?.singleUser) {
+    $('#login-open').style.display = 'none'; // no login concept in single-user mode
+  } else {
+    $('#login-open').style.display = '';
+    $('#login-open').textContent = state.user ? state.user.email.split('@')[0].toUpperCase() : 'LOGIN';
+  }
   updateCommandList();
 }
 

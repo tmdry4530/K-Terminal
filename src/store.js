@@ -132,6 +132,18 @@ export class JsonStore {
     return user;
   }
 
+  // Single-user mode: the one local operator account, created on first use with a random
+  // (never-used-for-login) password. Idempotent.
+  async ensureSingleUser() {
+    const email = 'local@k-terminal.local';
+    let user = this.findUserByEmail(email);
+    if (!user) {
+      await this.createUser(email, randomId('pw_'));
+      user = this.findUserByEmail(email);
+    }
+    return user;
+  }
+
   async createSession(userId) {
     const token = randomId('sess_');
     const tokenHash = sha256Hex(token);
