@@ -44,7 +44,7 @@ function textBetween(item, tag) {
   return decodeXml(match?.[1] || '');
 }
 
-function analyzeSentiment(text) {
+export function analyzeSentiment(text) {
   const lower = String(text || '').toLowerCase();
   const pos = POSITIVE.filter((word) => lower.includes(word)).length;
   const neg = NEGATIVE.filter((word) => lower.includes(word)).length;
@@ -53,7 +53,7 @@ function analyzeSentiment(text) {
   return { score: Number(score.toFixed(2)), label };
 }
 
-function importance(text) {
+export function importance(text) {
   const lower = String(text || '').toLowerCase();
   const hits = IMPORTANT.filter((word) => lower.includes(word)).length;
   return hits >= 2 ? '높음' : hits === 1 ? '중간' : '낮음';

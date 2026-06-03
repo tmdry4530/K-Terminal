@@ -1,8 +1,19 @@
 # K Terminal Finance
 
-한국어 기반 고밀도 금융 터미널입니다. 미국 주식 투자자를 기본 대상으로 하며 미국 주식, ETF, 지수, 금리, 원자재, 환율, 뉴스, SEC 공시, 옵션, 포트폴리오, AI 요약, Paper Trading, 한국 주식과 DART 공시를 함께 다룹니다.
+한국어 기반 고밀도 금융 터미널입니다. 미국 주식 투자자를 기본 대상으로 하며 미국 주식, ETF, 지수, 금리, 원자재, 환율, 암호화폐, 뉴스, SEC 공시, 옵션, 포트폴리오(다통화 환산), AI 요약, Paper Trading, 한국 주식과 DART 공시, 실적·경제 캘린더를 함께 다룹니다.
 
 첨부된 레퍼런스 이미지는 `docs/reference-terminal.png`에 포함되어 있으며 UI 밀도와 패널 배치 기준으로 사용했습니다.
+
+## 주요 기능
+
+- **실시간 스트리밍**: SSE(`/api/stream`)로 지수·관심종목·암호화폐 시세를 자동 갱신하고 변동 시 셀이 점멸합니다. 상단 `LIVE` 배지로 연결 상태를 표시합니다.
+- **암호화폐**: Binance/CoinGecko/Coinbase 공개 API로 BTC/ETH/SOL 등 USD·KRW 시세와 차트를 제공합니다.
+- **다통화 포트폴리오**: 모든 보유 종목을 기준통화로 환산해 합산하며(USD+KRW 혼합 정확), 자본이익과 환차익을 분리합니다.
+- **가격/지표 알림**: 가격·변동%·RSI 임계치 알림을 브라우저 알림과 토스트로 발동합니다.
+- **실적·경제 캘린더**: Finnhub/Nasdaq 실적, FRED 미국 경제지표 릴리즈 일정.
+- **터미널 UX**: 명령창 자동완성·기록, 키보드 단축키(`?`로 도움말), 차트 크로스헤어와 다중 심볼 정규화 비교.
+- **보안**: CSP·보안 헤더, IP 기반 레이트리밋(인증 엄격), Origin 기반 CSRF 방어.
+- **성능**: TTL + stale-while-revalidate + single-flight 캐시로 동시 동일 요청을 1회 업스트림 호출로 합칩니다.
 
 ## 핵심 정책
 
@@ -22,7 +33,7 @@ npm start
 
 브라우저에서 `http://localhost:8080` 접속.
 
-의존성 없는 Node.js 프로젝트입니다. Node 20.10 이상에서 실행됩니다.
+의존성 없는 Node.js 프로젝트입니다. Node 20.10 이상에서 실행됩니다. `.env` 파일은 시작 시 자동으로 로드되며(실제 환경변수가 우선), 키가 없어도 공개 무료 데이터로 동작합니다.
 
 ## 테스트
 
@@ -62,6 +73,9 @@ docker compose up --build
 | 옵션/실시간 고급 데이터 | `POLYGON_API_KEY` | 선택 | 현재 구조와 문서 포함. 운영 연결 권장 |
 | SEC EDGAR | `SEC_USER_AGENT` | 권장 | SEC 공개 API 호출 시 식별 User-Agent |
 | OpenDART | `DART_API_KEY` | DART 필요 | 한국 공시 조회 |
+| 실적 캘린더 | `FINNHUB_API_KEY` | 선택 | 기간 실적 일정(없으면 Nasdaq 당일 비공식 fallback) |
+| 경제 캘린더 | `FRED_API_KEY` | 선택 | 미국 경제지표 릴리즈 일정 |
+| 암호화폐 | (불필요) | — | Binance/CoinGecko/Coinbase 공개 API, 키 없이 동작 |
 | AI/번역 | `GEMINI_API_KEY` | 선택 | 한국어 번역/분석. 없으면 로컬 규칙 요약 |
 | Alpaca Paper | `ALPACA_KEY_ID`, `ALPACA_SECRET_KEY`, `ALPACA_PAPER=true` | 선택 | Paper 주문 API 제출 |
 | IBKR | `IBKR_BASE_URL` | 선택 | Client Portal/TWS 어댑터 구조 |

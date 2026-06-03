@@ -352,6 +352,8 @@ async function twelveChart(symbol, range = '1Y', interval = '1D', token = config
 }
 
 export function finiteOrNull(value) {
+  // Treat missing values as null (not 0) so absent data is never shown as a fabricated zero.
+  if (value === null || value === undefined || value === '') return null;
   const numeric = typeof value === 'string' ? Number(value.replace(/,/g, '')) : Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 }
