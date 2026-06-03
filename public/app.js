@@ -758,14 +758,28 @@ function renderPortfolioSummary(body) {
   if (!state.user) return requireLoginBody(body);
   if (!state.portfolio) { loadPortfolio().then(renderWorkspace).catch(() => {}); body.textContent = '포트폴리오 로딩 중'; return; }
   const s = state.portfolio.summary || {};
+  const base = s.baseCurrency || state.portfolio.baseCurrency || 'USD';
+  const currencies = ['USD', 'KRW', 'EUR', 'JPY'];
   body.innerHTML = `
-    <div class="grid2">
-      <div class="metric"><div class="k">Total Value</div><div class="v">${fmt(s.totalValue)}</div></div>
-      <div class="metric"><div class="k">P/L</div><div class="v ${clsChange(s.pnl)}">${signed(s.pnl)}</div></div>
-      <div class="metric"><div class="k">P/L %</div><div class="v ${clsChange(s.pnlPercent)}">${pct(s.pnlPercent)}</div></div>
-      <div class="metric"><div class="k">Missing Px</div><div class="v ${s.missingPrices?.length ? 'down' : 'up'}">${s.missingPrices?.length || 0}</div></div>
+    <div class="row gap" style="justify-content:space-between">
+      <label style="grid-auto-flow:column; align-items:center; gap:5px">기준통화
+        <select id="base-currency">${currencies.map((c) => `<option ${base === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
+      </label>
+      <span class="muted">${escapeHtml(s.updatedAt ? s.updatedAt.slice(11, 19) : '')}</span>
     </div>
-    <div class="muted" style="margin-top:8px">${escapeHtml(s.dataStatus || '')} / ${escapeHtml(s.updatedAt || '')}</div>`;
+    <div class="grid2" style="margin-top:6px">
+      <div class="metric"><div class="k">Total (${escapeHtml(base)})</div><div class="v">${fmt(s.totalValue)}</div></div>
+      <div class="metric"><div class="k">P/L (${escapeHtml(base)})</div><div class="v ${clsChange(s.pnl)}">${signed(s.pnl)}</div></div>
+      <div class="metric"><div class="k">P/L %</div><div class="v ${clsChange(s.pnlPercent)}">${pct(s.pnlPercent)}</div></div>
+      <div class="metric"><div class="k">Missing Px / FX</div><div class="v ${(s.missingPrices?.length || s.missingFx?.length) ? 'down' : 'up'}">${s.missingPrices?.length || 0} / ${s.missingFx?.length || 0}</div></div>
+    </div>
+    <div class="muted" style="margin-top:8px">${escapeHtml(s.dataStatus || '')}${s.missingFx?.length ? ' · 환율 없음: ' + escapeHtml(s.missingFx.join(', ')) : ''}</div>`;
+  $('#base-currency', body)?.addEventListener('change', async (event) => {
+    await api('/api/portfolio', { method: 'PUT', body: { baseCurrency: event.target.value } });
+    state.portfolio = null;
+    await loadPortfolio();
+    renderWorkspace();
+  });
 }
 
 function renderPortfolioTable(body, widgetId, options = {}) {
@@ -778,13 +792,14 @@ function renderPortfolioTable(body, widgetId, options = {}) {
       <label>Qty<input name="quantity" type="number" step="0.0001" required></label>
       <label>Avg Px<input name="averagePrice" type="number" step="0.0001"></label>
       <label>Target %<input name="targetWeight" type="number" step="0.1"></label>
+      <label title="매입 시점 환율(기준통화 1단위당 native). 입력하면 환차익을 분리 계산합니다.">Buy FX<input name="purchaseFxRate" type="number" step="0.0001"></label>
       <button>ADD / UPDATE</button>
     </form>
     <div class="scroll" style="max-height:${options.big ? '640px' : '360px'}; margin-top:8px">
-    <table class="table"><thead><tr><th>Symbol</th><th>Qty</th><th>Last</th><th>Value</th><th>P/L</th><th>Wgt</th><th>Target</th><th>Status</th><th></th></tr></thead><tbody>
+    <table class="table"><thead><tr><th>Symbol</th><th>Ccy</th><th>Qty</th><th>Last</th><th>Value</th><th>Value(${escapeHtml(base)})</th><th>P/L</th><th>Wgt</th><th>FX</th><th>Status</th><th></th></tr></thead><tbody>
       ${(state.portfolio.holdings || []).map((h) => `<tr>
-        <td class="left"><button class="symbol-link" data-symbol="${escapeHtml(h.symbol)}">${escapeHtml(h.symbol)}</button></td><td>${fmt(h.quantity)}</td><td>${fmt(h.lastPrice)}</td><td>${fmt(h.marketValue)}</td><td class="${clsChange(h.pnl)}">${signed(h.pnl)}</td><td>${pct(h.weight)}</td><td>${h.targetWeight === null ? '데이터 없음' : pct(h.targetWeight)}</td><td>${statusBadge(h.priceStatus, h.quoteStatusMessage)}</td><td><button class="delete-holding" data-id="${escapeHtml(h.id)}">DEL</button></td>
-      </tr>`).join('') || '<tr><td>보유 종목 없음</td><td colspan="8"></td></tr>'}
+        <td class="left"><button class="symbol-link" data-symbol="${escapeHtml(h.symbol)}">${escapeHtml(h.symbol)}</button></td><td>${escapeHtml(h.currency || '')}</td><td>${fmt(h.quantity)}</td><td>${fmt(h.lastPrice)}</td><td>${fmt(h.marketValueNative)}</td><td>${fmt(h.marketValueBase)}</td><td class="${clsChange(h.pnl)}" title="native ${signed(h.pnl)} / base ${signed(h.pnlBase)}">${signed(h.pnl)}</td><td>${pct(h.weight)}</td><td>${h.currency === base ? '<span class="badge">1.0000</span>' : (h.fxRate === null ? statusBadge('데이터 없음', h.fxStatus || '') : `<span class="badge ok" title="${escapeHtml(h.fxSource || '')}">${fmt(h.fxRate, 4)}</span>`)}</td><td>${statusBadge(h.priceStatus, h.quoteStatusMessage)}</td><td><button class="delete-holding" data-id="${escapeHtml(h.id)}">DEL</button></td>
+      </tr>`).join('') || '<tr><td>보유 종목 없음</td><td colspan="10"></td></tr>'}
     </tbody></table></div>`;
   $('#holding-form', body).addEventListener('submit', async (event) => {
     event.preventDefault();

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:18:02.429Z",
+  "updatedAt": "2026-06-03T13:22:07.624Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -35,20 +35,23 @@
       "id": "G003-caching-resilience-layer",
       "title": "Caching & resilience layer",
       "objective": "Add dependency-free in-memory TTL cache with stale-while-revalidate and single-flight de-duplication; wrap upstream quote/chart/news/fx fetches so parallel same-symbol calls collapse to one upstream request. Short TTL quotes, longer charts. Tests.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:18:02.429Z",
-      "startedAt": "2026-06-03T13:18:02.429Z"
+      "updatedAt": "2026-06-03T13:20:36.169Z",
+      "startedAt": "2026-06-03T13:18:02.429Z",
+      "completedAt": "2026-06-03T13:20:36.169Z",
+      "evidence": "Commit a99c681. src/cache.js (TTL+SWR+single-flight, value-dependent TTL, idle eviction). Integrated into marketData getQuote/getChart/getOptions (keyed by symbol+provider tag) and news fetchNews (clone-on-mutate guard). 6 new cache tests, 18 total pass. check/test/smoke green."
     },
     {
       "id": "G004-multi-currency-fx-normalization",
       "title": "Multi-currency FX normalization",
       "objective": "Add fx module (Yahoo KRW=X live-ish + open.er-api/frankfurter fallback, cached); rewrite portfolio enrichment to convert each holding into base currency before summing (fixes USD+KRW raw-sum bug); separate capital gain from currency gain; add exposure-by-currency; surface base-currency totals + FX status in widgets. Tests for conversion math.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:22:07.624Z",
+      "startedAt": "2026-06-03T13:22:07.624Z"
     },
     {
       "id": "G005-real-time-streaming-via-sse",
@@ -106,5 +109,5 @@
     }
   ],
   "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G003-caching-resilience-layer"
+  "activeGoalId": "G004-multi-currency-fx-normalization"
 }

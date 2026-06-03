@@ -259,12 +259,14 @@ function normalizeHolding(raw) {
   if (!symbol || !Number.isFinite(quantity) || quantity <= 0) return null;
   const averagePrice = raw.averagePrice === '' || raw.averagePrice === undefined ? null : Number(raw.averagePrice);
   const targetWeight = raw.targetWeight === '' || raw.targetWeight === undefined ? null : Number(raw.targetWeight);
+  const purchaseFxRate = raw.purchaseFxRate === '' || raw.purchaseFxRate === undefined ? null : Number(raw.purchaseFxRate);
   return {
     id: raw.id || '',
     symbol,
     name: String(raw.name || symbol).trim(),
     quantity,
     averagePrice: Number.isFinite(averagePrice) ? averagePrice : null,
+    purchaseFxRate: Number.isFinite(purchaseFxRate) && purchaseFxRate > 0 ? purchaseFxRate : null,
     currency: String(raw.currency || (symbol.endsWith('.KS') || symbol.endsWith('.KQ') ? 'KRW' : 'USD')).toUpperCase(),
     sector: String(raw.sector || '').trim() || null,
     country: String(raw.country || (symbol.endsWith('.KS') || symbol.endsWith('.KQ') ? 'KR' : 'US')).toUpperCase(),
