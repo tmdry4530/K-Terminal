@@ -48,7 +48,12 @@ export function applySecurityHeaders(res, options = {}) {
 export function clientIp(req, { trustProxy = false } = {}) {
   if (trustProxy) {
     const forwarded = req.headers['x-forwarded-for'];
-    if (forwarded) return String(forwarded).split(',')[0].trim();
+    if (forwarded) {
+      // Take the LAST hop — the one our own proxy appended — not the leftmost value,
+      // which is client-supplied and spoofable to dodge rate limits.
+      const parts = String(forwarded).split(',').map((part) => part.trim()).filter(Boolean);
+      if (parts.length) return parts[parts.length - 1];
+    }
   }
   return req.socket?.remoteAddress || 'unknown';
 }

@@ -3,6 +3,8 @@ import { getSnapshot, MARKET_UNIVERSE } from './marketData.js';
 const HEARTBEAT_MS = 15000;
 const DEFAULT_INTERVAL_MS = 5000;
 const MAX_SYMBOLS = 120;
+const MAX_CLIENTS = 500; // global cap so one process can't be exhausted by open streams
+const MAX_PER_IP = 5;
 
 // Multiplexed Server-Sent Events quote stream. A single shared poller fetches the union of
 // the market universe and every connected client's requested symbols (via the cached
@@ -51,7 +53,11 @@ export function createQuoteStream({ intervalMs = DEFAULT_INTERVAL_MS, fetchSnaps
     if (poller && !clients.size) { clearInterval(poller); poller = null; }
   }
 
-  function addClient(req, res, symbols = []) {
+  function addClient(req, res, symbols = [], ip = 'unknown') {
+    if (clients.size >= MAX_CLIENTS) { res.writeHead(503).end(); return; }
+    let perIp = 0;
+    for (const existing of clients) if (existing.ip === ip) perIp += 1;
+    if (perIp >= MAX_PER_IP) { res.writeHead(429).end(); return; }
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -59,7 +65,7 @@ export function createQuoteStream({ intervalMs = DEFAULT_INTERVAL_MS, fetchSnaps
       'X-Accel-Buffering': 'no'
     });
     res.write('retry: 3000\n\n');
-    const client = { res, symbols: new Set(symbols.filter(Boolean).slice(0, MAX_SYMBOLS)) };
+    const client = { res, ip, symbols: new Set(symbols.filter(Boolean).slice(0, MAX_SYMBOLS)) };
     client.heartbeat = setInterval(() => {
       try { res.write(': hb\n\n'); } catch { removeClient(client); }
     }, HEARTBEAT_MS);

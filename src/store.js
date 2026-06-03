@@ -74,7 +74,8 @@ export class JsonStore {
 
   async persist() {
     const payload = JSON.stringify(this.db, null, 2);
-    this.writePromise = this.writePromise.then(async () => {
+    // .catch first so one failed write never poisons the chain and silently drops later saves.
+    this.writePromise = this.writePromise.catch(() => {}).then(async () => {
       const tmp = `${this.filePath}.tmp`;
       await fs.writeFile(tmp, payload, 'utf8');
       await fs.rename(tmp, this.filePath);
@@ -159,6 +160,8 @@ export class JsonStore {
     if (!user) throw new Error('사용자를 찾을 수 없습니다.');
     user.settings = { ...defaultSettings(), ...(user.settings || {}), ...(patch || {}) };
     if (Array.isArray(patch?.watchlist)) user.watchlist = patch.watchlist.map((s) => String(s).trim().toUpperCase()).filter(Boolean).slice(0, 100);
+    // Bound client-supplied alerts server-side (do not trust the browser's own cap).
+    if (patch?.alerts !== undefined) user.settings.alerts = Array.isArray(patch.alerts) ? patch.alerts.slice(0, 100) : [];
     await this.persist();
     return safeUser(user);
   }
@@ -200,6 +203,8 @@ export class JsonStore {
     const user = this.getUserById(userId);
     if (!user) throw new Error('사용자를 찾을 수 없습니다.');
     user.portfolio = { ...defaultPortfolio(), ...(user.portfolio || {}), ...(patch || {}) };
+    // Coerce base currency to a 3-letter code; anything else falls back to USD.
+    user.portfolio.baseCurrency = /^[A-Za-z]{3}$/.test(String(user.portfolio.baseCurrency || '')) ? String(user.portfolio.baseCurrency).toUpperCase() : 'USD';
     if (Array.isArray(patch?.holdings)) user.portfolio.holdings = patch.holdings.map(normalizeHolding).filter(Boolean);
     await this.persist();
     return clone(user.portfolio);

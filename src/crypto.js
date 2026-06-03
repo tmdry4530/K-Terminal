@@ -9,9 +9,14 @@ export function sha256Hex(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
 }
 
+const MAX_PASSWORD_LENGTH = 1024;
+
 export function hashPassword(password) {
   if (typeof password !== 'string' || password.length < 10) {
     throw new Error('비밀번호는 최소 10자 이상이어야 합니다.');
+  }
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    throw new Error('비밀번호가 너무 깁니다.');
   }
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.scryptSync(password, salt, 64).toString('hex');
@@ -19,6 +24,7 @@ export function hashPassword(password) {
 }
 
 export function verifyPassword(password, passwordRecord) {
+  if (typeof password !== 'string' || password.length > MAX_PASSWORD_LENGTH) return false;
   if (!passwordRecord?.salt || !passwordRecord?.hash) return false;
   const expected = Buffer.from(passwordRecord.hash, 'hex');
   const actual = crypto.scryptSync(password, passwordRecord.salt, 64);

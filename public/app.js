@@ -1204,11 +1204,11 @@ function renderAlerts(body) {
     </form>
     <div class="scroll" style="margin-top:6px">
       <table class="table"><thead><tr><th>Symbol</th><th>Condition</th><th>State</th><th></th></tr></thead><tbody>
-      ${alerts.map((alert, index) => `<tr>
+      ${alerts.map((alert) => `<tr>
         <td class="left">${escapeHtml(alert.symbol)}</td>
         <td>${escapeHtml(alertCondLabel(alert))}</td>
         <td>${alert.enabled ? (alert.triggeredAt ? statusBadge('발동', alert.triggeredAt) : statusBadge('대기')) : statusBadge('중지')}</td>
-        <td><button data-index="${index}" class="alert-toggle">${alert.enabled ? 'OFF' : 'ON'}</button> <button data-index="${index}" class="alert-del">DEL</button></td>
+        <td><button data-id="${escapeHtml(alert.id)}" class="alert-toggle">${alert.enabled ? 'OFF' : 'ON'}</button> <button data-id="${escapeHtml(alert.id)}" class="alert-del">DEL</button></td>
       </tr>`).join('') || '<tr><td>알림 없음</td><td colspan="3"></td></tr>'}
       </tbody></table>
     </div>
@@ -1225,13 +1225,11 @@ function renderAlerts(body) {
   });
   $$('.alert-toggle', body).forEach((button) => button.addEventListener('click', async () => {
     const list = currentAlerts();
-    const alert = list[Number(button.dataset.index)];
+    const alert = list.find((item) => item.id === button.dataset.id);
     if (alert) { alert.enabled = !alert.enabled; alert.snoozedUntil = 0; alert.triggeredAt = alert.enabled ? null : alert.triggeredAt; await saveAlerts(list); renderWorkspace(); }
   }));
   $$('.alert-del', body).forEach((button) => button.addEventListener('click', async () => {
-    const list = currentAlerts();
-    list.splice(Number(button.dataset.index), 1);
-    await saveAlerts(list);
+    await saveAlerts(currentAlerts().filter((item) => item.id !== button.dataset.id));
     renderWorkspace();
   }));
 }

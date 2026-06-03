@@ -164,7 +164,7 @@ async function routeApi(req, res, url) {
   // SSE quote stream: writes its own headers and stays open, so handle before JSON routing.
   if (method === 'GET' && pathname === '/api/stream') {
     const symbols = (url.searchParams.get('symbols') || '').split(',').map((s) => s.trim()).filter(Boolean);
-    quoteStream.addClient(req, res, symbols);
+    quoteStream.addClient(req, res, symbols, ip);
     return;
   }
 

@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 
 const port = String(18080 + Math.floor(Math.random() * 1000));
+const dataDir = new URL(`../data/smoke-${port}`, import.meta.url);
 const child = spawn(process.execPath, ['src/server.js'], {
   cwd: new URL('..', import.meta.url),
   env: { ...process.env, PORT: port, DATA_DIR: `./data/smoke-${port}`, SECRET_KEY: 'smoke-test-secret-key-with-enough-length' },
@@ -35,4 +37,5 @@ try {
   console.log('Smoke test passed');
 } finally {
   child.kill('SIGTERM');
+  fs.rmSync(dataDir, { recursive: true, force: true });
 }

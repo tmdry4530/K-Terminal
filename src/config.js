@@ -55,6 +55,12 @@ export const config = Object.freeze({
   kisPaper: bool(process.env.KIS_PAPER, true)
 });
 
+// In production, refuse to boot with the public dev default — it would encrypt every stored
+// API key under a known key. Session tokens are SHA-256 hashed and don't depend on this.
+if (config.nodeEnv === 'production' && (!process.env.SECRET_KEY || config.secretKey.startsWith('development-only-secret'))) {
+  throw new Error('SECRET_KEY must be set to a strong random value when NODE_ENV=production.');
+}
+
 export function providerFlags() {
   return {
     marketDataProvider: config.marketDataProvider,
