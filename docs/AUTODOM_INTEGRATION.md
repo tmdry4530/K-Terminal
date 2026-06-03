@@ -48,11 +48,11 @@ risk/execution gate가 담당합니다. 터미널은 **관측 + 부작용 없는
 | `GET /api/autodom/status` | 브릿지 health + `/v1/status` (모드·카운터·kill-switch·daily-stop·live_enabled). 오프라인이면 `online:false` |
 | `GET /api/autodom/dashboard` | `/v1/dashboard/snapshot` (caps, env readiness 불리언 — 시크릿 없음) |
 | `GET /api/signals/recent` | auto-dom inbox JSONL tail을 파싱해 최신순 반환 |
+| `GET /api/signals/executions` | auto-dom runtime/live audit를 읽어 실행 판정과 원 signal 근거를 표시 |
 | `POST /api/signals/preview` | `/v1/signals/preview` — 부작용 없는 risk/exec 판정 (로그인 필요) |
-| `POST /api/autodom/watch-target` | watch-only 대상 저장 (로그인 필요) |
 | `POST /api/autodom/agent/actions` | `pause_trading` / `resume_trading`(operator_approved 필요). 주문/레버리지 변경 불가 |
 
-SSE `/api/stream`의 `signal` 이벤트로 새 시그널이 실시간 점멸합니다.
+SSE `/api/stream`의 `signal` 이벤트로 새 시그널이 실시간 점멸합니다. 특정 심볼 감시/수동 진입 폼은 이 파이프라인 범위가 아니므로 제거했습니다.
 
 ## 안전 모델
 

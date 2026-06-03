@@ -62,24 +62,6 @@ export async function previewSignal(signal) {
   }
 }
 
-export async function getWatchTarget() {
-  try {
-    const result = await bridgeFetch('/v1/dashboard/watch-target');
-    return { online: result.ok, data: result.data?.data || result.data };
-  } catch (error) {
-    return { online: false, statusMessage: error.message };
-  }
-}
-
-export async function setWatchTarget(target) {
-  try {
-    const result = await bridgeFetch('/v1/dashboard/watch-target', { method: 'POST', body: target });
-    return { online: true, ok: result.ok, status: result.status, data: result.data };
-  } catch (error) {
-    return { online: false, statusMessage: error.message };
-  }
-}
-
 // pause_trading / resume_trading only — the bridge rejects anything that could place an order.
 export async function agentAction(action) {
   try {

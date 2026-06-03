@@ -7,7 +7,7 @@ import { getChart, getSnapshot, MARKET_UNIVERSE } from './marketData.js';
 import { CRYPTO_UNIVERSE } from './cryptoMarket.js';
 import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
 import { createQuoteStream } from './stream.js';
-import { agentAction, bridgeDashboard, bridgeStatus, getWatchTarget, previewSignal, recentExecutions, recentSignals, setWatchTarget } from './autodom.js';
+import { agentAction, bridgeDashboard, bridgeStatus, previewSignal, recentExecutions, recentSignals } from './autodom.js';
 
 // ~120 req/min sustained for general API; tight ~6/min on auth to blunt brute force.
 const apiLimiter = createLimiter({ capacity: 120, refillPerSec: 2 });
@@ -271,24 +271,11 @@ async function routeApi(req, res, url) {
     return;
   }
 
-  if (method === 'GET' && pathname === '/api/autodom/watch-target') {
-    sendJson(res, 200, await getWatchTarget());
-    return;
-  }
-
   if (method === 'POST' && pathname === '/api/signals/preview') {
     const authUser = await requireUser(req, res);
     if (!authUser) return;
     const body = await readBody(req);
     sendJson(res, 200, await previewSignal(body.signal || body));
-    return;
-  }
-
-  if (method === 'POST' && pathname === '/api/autodom/watch-target') {
-    const authUser = await requireUser(req, res);
-    if (!authUser) return;
-    const body = await readBody(req);
-    sendJson(res, 200, await setWatchTarget(body));
     return;
   }
 
