@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>K Terminal Finance</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app-shell">
+    <header class="topbar">
+      <div class="brand">K TERMINAL</div>
+      <nav class="global-menu" aria-label="전역 메뉴">
+        <button data-global="markets">Markets</button>
+        <button data-global="portfolio">Portfolio</button>
+        <button data-global="research">Research</button>
+        <button data-global="tools">Tools</button>
+        <button data-global="ai">AI</button>
+      </nav>
+      <div class="command-box">
+        <span>LLM &lt;GO&gt;</span>
+        <input id="command-input" type="text" placeholder="티커, 화면, 명령 입력: AAPL 1Y / NEWS NVDA / PORT" autocomplete="off" />
+      </div>
+      <button id="ai-copilot" class="ai-button">AI COPILOT</button>
+      <button id="login-open" class="login-button">LOGIN</button>
+      <div class="clock" id="clock">--:--:--</div>
+    </header>
+
+    <section class="index-strip" id="index-strip" aria-label="지수 스트립"></section>
+
+    <section class="subtabs" id="subtabs" aria-label="내부 탭">
+      <button data-tab="market" class="active">시장</button>
+      <button data-tab="monitor">모니터</button>
+      <button data-tab="chart">차트</button>
+      <button data-tab="news">뉴스</button>
+      <button data-tab="portfolio">포트폴리오</button>
+      <button data-tab="options">옵션</button>
+      <button data-tab="order">주문</button>
+      <button data-tab="ai">AI</button>
+    </section>
+
+    <main id="workspace" class="workspace">
+      <section class="panel left-panel" data-panel="left"></section>
+      <div class="splitter" data-splitter="left" role="separator" aria-label="좌측 패널 폭 조절"></div>
+      <section class="panel center-panel" data-panel="center"></section>
+      <div class="splitter" data-splitter="right" role="separator" aria-label="우측 패널 폭 조절"></div>
+      <section class="panel right-panel" data-panel="right"></section>
+    </main>
+
+    <footer class="statusbar">
+      <div>데이터 정책: 실제 데이터 / 지연 데이터 / API 필요 / 데이터 없음 명확 표시</div>
+      <div id="connection-state">연결 확인 중</div>
+      <div id="active-symbol-status">AAPL</div>
+    </footer>
+  </div>
+
+  <dialog id="login-dialog" class="modal">
+    <form method="dialog" class="modal-card" id="auth-form">
+      <header>
+        <strong>로그인 / 가입</strong>
+        <button value="cancel" class="icon-button">×</button>
+      </header>
+      <label>이메일 <input id="auth-email" type="email" required placeholder="you@example.com" /></label>
+      <label>비밀번호 <input id="auth-password" type="password" required minlength="10" placeholder="10자 이상" /></label>
+      <div class="row gap">
+        <button id="login-submit" type="button">로그인</button>
+        <button id="register-submit" type="button">가입</button>
+        <button id="logout-submit" type="button">로그아웃</button>
+      </div>
+      <p id="auth-message" class="muted"></p>
+    </form>
+  </dialog>
+
+  <dialog id="big-modal" class="modal big-modal">
+    <form method="dialog" class="modal-card wide">
+      <header>
+        <strong id="big-modal-title">크게 보기</strong>
+        <button value="cancel" class="icon-button">×</button>
+      </header>
+      <div id="big-modal-content"></div>
+    </form>
+  </dialog>
+
+  <template id="widget-template">
+    <article class="widget" draggable="true">
+      <header class="widget-header">
+        <div>
+          <strong class="widget-title"></strong>
+          <span class="widget-subtitle"></span>
+        </div>
+        <div class="widget-actions"></div>
+      </header>
+      <div class="widget-body"></div>
+    </article>
+  </template>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

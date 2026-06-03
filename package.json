@@ -1,0 +1,17 @@
+{
+  "name": "k-terminal-finance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Korean high-density financial terminal for US/KR stocks, news, filings, portfolio, AI and paper trading.",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js",
+    "test": "node --test test/*.mjs",
+    "check": "node --check src/server.js && node --check public/app.js",
+    "smoke": "node scripts/smoke-test.mjs"
+  },
+  "engines": {
+    "node": ">=20.10"
+  }
+}

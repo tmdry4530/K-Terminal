@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "createdAt": "2026-06-03T13:07:33.225Z",
+  "updatedAt": "2026-06-03T13:07:40.004Z",
+  "briefPath": ".omc/ultragoal/brief.md",
+  "goalsPath": ".omc/ultragoal/goals.json",
+  "ledgerPath": ".omc/ultragoal/ledger.jsonl",
+  "claudeGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-correctness-foundation",
+      "title": "Correctness & foundation",
+      "objective": "Fix .env-not-loaded (no-dep loader so npm start respects .env), fix options CALL/PUT misclassification, add browser User-Agent to Yahoo fetches, add SIGTERM/SIGINT graceful shutdown that drains connections and flushes pending writes, git init + baseline commit. check/test/smoke stay green.",
+      "status": "in_progress",
+      "attempt": 1,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:40.004Z",
+      "startedAt": "2026-06-03T13:07:40.004Z"
+    },
+    {
+      "id": "G002-security-hardening",
+      "title": "Security hardening",
+      "objective": "Add security response headers (CSP for vanilla SVG/inline-style frontend, nosniff, frame-options, referrer-policy, permissions-policy, HSTS on secure), in-memory token-bucket rate limiting (strict auth keyed IP+email, looser API, 429+Retry-After), and Origin/Referer CSRF check on all mutating requests. Tests for limiter + csrf.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G003-caching-resilience-layer",
+      "title": "Caching & resilience layer",
+      "objective": "Add dependency-free in-memory TTL cache with stale-while-revalidate and single-flight de-duplication; wrap upstream quote/chart/news/fx fetches so parallel same-symbol calls collapse to one upstream request. Short TTL quotes, longer charts. Tests.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G004-multi-currency-fx-normalization",
+      "title": "Multi-currency FX normalization",
+      "objective": "Add fx module (Yahoo KRW=X live-ish + open.er-api/frankfurter fallback, cached); rewrite portfolio enrichment to convert each holding into base currency before summing (fixes USD+KRW raw-sum bug); separate capital gain from currency gain; add exposure-by-currency; surface base-currency totals + FX status in widgets. Tests for conversion math.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G005-real-time-streaming-via-sse",
+      "title": "Real-time streaming via SSE",
+      "objective": "Add multiplexed /api/stream Server-Sent Events endpoint with heartbeat and cleanup; server poller refreshes index/watchlist snapshot on interval via cache and pushes to subscribers; client EventSource with auto-reconnect, flash-on-update (respect prefers-reduced-motion), live connection-status badge; wire SSE into graceful shutdown.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G006-price-indicator-alerts",
+      "title": "Price & indicator alerts",
+      "objective": "Implement alerts (settings.alerts schema exists): create/list/delete price-cross, percent-change, RSI-threshold alerts; evaluate client-side against live stream; fire Notification API + in-app toast; alert-center widget to manage/snooze/disable; persist per-user and in localStorage for guests.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G007-crypto-assets",
+      "title": "Crypto assets",
+      "objective": "Add crypto market module (Binance data-api primary, CoinGecko/Coinbase fallback, Coinbase for KRW pairs); route crypto symbols through snapshot/chart/watchlist with correct status labels; add crypto to market universe and a crypto monitor. Real responses only, no fake numbers.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G008-economic-earnings-calendar",
+      "title": "Economic & earnings calendar",
+      "objective": "Add calendar module (Finnhub earnings when key present else API-required, FRED US release dates, honest data-none/api-required labels for uncovered free tiers); calendar widget highlighting the user watchlist symbols.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G009-terminal-ux-accessibility-polish",
+      "title": "Terminal UX & accessibility polish",
+      "objective": "Command box autocomplete + history (up-arrow recall), global keyboard shortcuts + help overlay, multi-symbol comparison overlay with crosshair readout on the SVG chart, and accessibility baseline (never color-alone with arrows+signs, ARIA on data grids, visible focus, prefers-reduced-motion, contrast).",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    },
+    {
+      "id": "G010-test-coverage-ci-final-gate",
+      "title": "Test coverage, CI & final gate",
+      "objective": "Broaden node:test coverage (marketData parsing, news sentiment, filings mapping, fx, cache, rate-limiter, brokers live-block safety); add GitHub Actions CI (check+test+smoke on Node 20/22); refresh docs/README. Run mandatory final gate: ai-slop-cleaner, verification, code-review; checkpoint complete only when all clean.",
+      "status": "pending",
+      "attempt": 0,
+      "createdAt": "2026-06-03T13:07:33.225Z",
+      "updatedAt": "2026-06-03T13:07:33.225Z"
+    }
+  ],
+  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
+  "activeGoalId": "G001-correctness-foundation"
+}

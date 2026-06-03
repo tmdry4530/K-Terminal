@@ -1,0 +1,15 @@
+services:
+  k-terminal-finance:
+    build: .
+    image: k-terminal-finance:latest
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+      - DATA_DIR=/app/data
+      - COOKIE_SECURE=false
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

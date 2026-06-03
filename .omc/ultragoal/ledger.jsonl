@@ -1,0 +1,2 @@
+{"ts":"2026-06-03T13:07:33.225Z","event":"plan_created","message":"10 goal(s) created"}
+{"ts":"2026-06-03T13:07:40.004Z","event":"goal_started","goalId":"G001-correctness-foundation","status":"in_progress","message":"Attempt 1"}
