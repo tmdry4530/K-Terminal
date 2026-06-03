@@ -4,3 +4,8 @@ data/
 *.log
 .DS_Store
 coverage
+
+# Locally installed third-party agent skills + browser-automation tooling (regenerable)
+.agents/
+.claude/skills/
+.playwright-cli/
