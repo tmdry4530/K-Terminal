@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:07:40.004Z",
+  "updatedAt": "2026-06-03T13:12:17.687Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -11,11 +11,13 @@
       "id": "G001-correctness-foundation",
       "title": "Correctness & foundation",
       "objective": "Fix .env-not-loaded (no-dep loader so npm start respects .env), fix options CALL/PUT misclassification, add browser User-Agent to Yahoo fetches, add SIGTERM/SIGINT graceful shutdown that drains connections and flushes pending writes, git init + baseline commit. check/test/smoke stay green.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:40.004Z",
-      "startedAt": "2026-06-03T13:07:40.004Z"
+      "updatedAt": "2026-06-03T13:12:17.687Z",
+      "startedAt": "2026-06-03T13:07:40.004Z",
+      "completedAt": "2026-06-03T13:12:17.687Z",
+      "evidence": "Commit d3f3cd2. src/env.js no-dep .env loader wired into config.js (verified secretKey now loads from .env). Options CALL/PUT fixed via calls/puts arrays. Yahoo browser User-Agent added to quote/chart/options. SIGTERM/SIGINT graceful shutdown + store.flush(). git init baseline 0aa62f8. npm run check + npm test (5/5 pass) + npm run smoke all green."
     },
     {
       "id": "G002-security-hardening",
@@ -99,6 +101,5 @@
       "updatedAt": "2026-06-03T13:07:33.225Z"
     }
   ],
-  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G001-correctness-foundation"
+  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate"
 }

@@ -9,6 +9,11 @@ import { getNewsWithOptionalTranslation } from './news.js';
 import { answerQuestion } from './ai.js';
 import { getDartFilings, getSecFilings } from './filings.js';
 import { enrichPortfolio } from './portfolio.js';
+import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
+
+// ~120 req/min sustained for general API; tight ~6/min on auth to blunt brute force.
+const apiLimiter = createLimiter({ capacity: 120, refillPerSec: 2 });
+const authLimiter = createLimiter({ capacity: 6, refillPerSec: 6 / 60 });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -136,6 +141,22 @@ async function serveStatic(req, res, pathname) {
 async function routeApi(req, res, url) {
   const pathname = url.pathname;
   const method = req.method || 'GET';
+
+  // CSRF defense-in-depth: reject cross-origin state-changing requests.
+  if (!sameOriginOk(req)) {
+    sendError(res, 403, '허용되지 않은 Origin의 요청입니다.');
+    return;
+  }
+
+  // Rate limit early (before any DB work). Auth endpoints get a much tighter bucket.
+  const ip = clientIp(req, { trustProxy: config.trustProxy });
+  const isAuthEndpoint = pathname === '/api/auth/login' || pathname === '/api/auth/register';
+  const limit = isAuthEndpoint ? authLimiter(`auth:${ip}`) : apiLimiter(`api:${ip}`);
+  if (!limit.ok) {
+    sendJson(res, 429, { error: '요청이 너무 많습니다. 잠시 후 다시 시도하세요.', retryAfter: limit.retryAfter }, { 'Retry-After': String(limit.retryAfter) });
+    return;
+  }
+
   const user = await getCurrentUser(req);
   const userApiKeys = getUserApiKeys(user);
 
@@ -344,6 +365,7 @@ async function routeApi(req, res, url) {
 
 async function handler(req, res) {
   try {
+    applySecurityHeaders(res, { secure: config.cookieSecure });
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     if (url.pathname.startsWith('/api/')) {
       await routeApi(req, res, url);

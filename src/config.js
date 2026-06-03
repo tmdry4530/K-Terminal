@@ -29,6 +29,7 @@ export const config = Object.freeze({
   secretKey: process.env.SECRET_KEY || 'development-only-secret-change-before-production-64-chars-minimum',
   sessionDays: int(process.env.SESSION_DAYS, 7),
   cookieSecure: bool(process.env.COOKIE_SECURE, false),
+  trustProxy: bool(process.env.TRUST_PROXY, false),
   marketDataProvider: process.env.MARKET_DATA_PROVIDER || 'auto',
   finnhubApiKey: process.env.FINNHUB_API_KEY || '',
   twelveDataApiKey: process.env.TWELVE_DATA_API_KEY || '',
