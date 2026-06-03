@@ -9,7 +9,8 @@
     "dev": "NODE_ENV=development node src/server.js",
     "test": "node --test test/*.mjs",
     "check": "node --check src/server.js && node --check public/app.js && node --check src/stream.js && node --check src/ai.js",
-    "smoke": "node scripts/smoke-test.mjs"
+    "smoke": "node scripts/smoke-test.mjs",
+    "start:all": "bash scripts/run-all.sh"
   },
   "engines": {
     "node": ">=20.10"
