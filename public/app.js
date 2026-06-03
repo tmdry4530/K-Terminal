@@ -181,6 +181,10 @@ function setStatus(text) {
   $('#connection-state').textContent = text;
 }
 
+function skeletonBlock(rows = 5) {
+  return `<div class="stack" style="gap:6px; margin-top:4px">${Array.from({ length: rows }, () => '<div class="skeleton" style="height:16px"></div>').join('')}</div>`;
+}
+
 function getViewLayout(tab = state.activeTab) {
   const saved = state.layout.tabs?.[tab];
   const base = DEFAULT_VIEWS[tab] || DEFAULT_VIEWS.market;
@@ -563,7 +567,7 @@ function renderWatchlist(body) {
       <input name="symbol" placeholder="AAPL / 005930.KS" />
       <button>ADD</button>
     </form>
-    <div class="scroll" style="margin-top:6px" id="watchlist-table">불러오는 중</div>
+    <div class="scroll" style="margin-top:6px" id="watchlist-table">${skeletonBlock(5)}</div>
   `;
   $('#watchlist-form', body).addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -629,7 +633,7 @@ function renderRatesCommodities(body) {
 
 function renderMonitorGrid(body) {
   const symbols = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META', 'SPY', 'QQQ', 'VTI', '005930.KS', '000660.KS'];
-  body.innerHTML = `<div id="monitor-grid-body">로딩 중</div>`;
+  body.innerHTML = `<div id="monitor-grid-body">${skeletonBlock(6)}</div>`;
   api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
     $('#monitor-grid-body', body).innerHTML = `
       <table class="table"><thead><tr><th>Symbol</th><th>Px</th><th>Chg</th><th>Vol</th><th>Status</th></tr></thead><tbody>
@@ -642,7 +646,7 @@ function renderMonitorGrid(body) {
 function renderCryptoMonitor(body) {
   const universe = state.meta?.cryptoUniverse || [];
   const symbols = universe.map((item) => item.symbol);
-  body.innerHTML = '<div id="crypto-monitor-body">로딩 중</div>';
+  body.innerHTML = `<div id="crypto-monitor-body">${skeletonBlock(5)}</div>`;
   if (!symbols.length) { $('#crypto-monitor-body', body).textContent = '암호화폐 유니버스 정보 없음'; return; }
   api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
     $('#crypto-monitor-body', body).innerHTML = `
@@ -654,7 +658,7 @@ function renderCryptoMonitor(body) {
 }
 
 function renderCalendar(body) {
-  body.innerHTML = '<div id="cal-earn">실적 캘린더 로딩 중</div><div id="cal-econ" style="margin-top:10px">경제 캘린더 로딩 중</div>';
+  body.innerHTML = `<div id="cal-earn">${skeletonBlock(4)}</div><div id="cal-econ" style="margin-top:10px">${skeletonBlock(3)}</div>`;
   const watch = new Set(currentWatchlist());
   api('/api/calendar/earnings').then((data) => {
     const rows = (data.events || []).slice(0, 60);

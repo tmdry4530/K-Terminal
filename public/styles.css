@@ -14,8 +14,10 @@
   --left-width: 300px;
   --right-width: 330px;
   --topbar-height: 40px;
+  --mono: "SF Mono", "JetBrains Mono", "Roboto Mono", "DejaVu Sans Mono", Consolas, "Liberation Mono", monospace;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Inter Tight", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -150,34 +152,36 @@ textarea.ai-input { width: 100%; min-height: 70px; resize: vertical; }
 /* ---------- UI polish ---------- */
 /* Tabular figures so numeric columns align crisply (terminal feel). */
 .index-card .value, .index-card .change, .metric .v, .table td, .table th, .chart-controls, kbd { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+/* Monospace for data/numbers — the defining trait of a real terminal. UI labels stay sans. */
+.table td, .table th, .index-card .value, .index-card .change, .metric .v, #command-input, #active-symbol-status, #chart-readout { font-family: var(--mono); }
 
-button { border-radius: 4px; transition: border-color .12s ease, background-color .12s ease, color .12s ease; }
+button { border-radius: 4px; transition: border-color .12s var(--ease), background-color .12s var(--ease), color .12s var(--ease); }
 button:hover { border-color: var(--accent); background: #18222d; }
-input, select, textarea { border-radius: 4px; transition: border-color .12s ease; }
+input, select, textarea { border-radius: 4px; transition: border-color .12s var(--ease); }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; }
 
 .brand::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); margin-right: 7px; vertical-align: middle; box-shadow: 0 0 8px rgba(127,104,255,.7); }
 .ai-button { background: linear-gradient(180deg, #8a76ff, #6a52f0); border-color: #9a8cff; box-shadow: 0 0 0 1px rgba(154,140,255,.35), 0 2px 10px rgba(127,104,255,.25); }
 .ai-button:hover { background: linear-gradient(180deg, #9684ff, #7461f3); border-color: #b3a8ff; }
 
-.subtabs button { border-radius: 4px 4px 0 0; transition: background .12s ease, border-color .12s ease; }
+.subtabs button { border-radius: 4px 4px 0 0; transition: background .12s var(--ease), border-color .12s var(--ease); }
 .subtabs button.active { box-shadow: inset 0 -2px 0 var(--accent); }
 
-.widget { border-radius: 6px; transition: border-color .15s ease, box-shadow .15s ease; }
+.widget { border-radius: 6px; transition: border-color .15s var(--ease), box-shadow .15s var(--ease); }
 .widget:hover { border-color: #2b3a44; box-shadow: 0 6px 20px rgba(0,0,0,.4); }
 .widget-header { background: linear-gradient(180deg, #0a1116, #070b0e); }
 .widget-title::before { content: ''; display: inline-block; width: 3px; height: 11px; border-radius: 1px; background: var(--accent); margin-right: 7px; vertical-align: -1px; }
 .widget-actions button { padding: 2px 7px; font-size: 9px; letter-spacing: .04em; color: var(--muted); border-color: var(--line); }
 .widget-actions button:hover { color: var(--text); border-color: var(--accent); background: transparent; }
 
-.metric { border-radius: 5px; background: linear-gradient(180deg, #0a0f14, #06090d); transition: border-color .15s ease; }
+.metric { border-radius: 5px; background: linear-gradient(180deg, #0a0f14, #06090d); transition: border-color .15s var(--ease); }
 .metric:hover { border-color: var(--line-strong); }
 .gauge { display: block; width: 100%; max-width: 230px; margin: 2px auto 0; }
 
-.index-card { transition: background .12s ease; }
+.index-card { transition: background .12s var(--ease); }
 .index-card:hover { background: #0b1822; }
 
-.table tbody tr { transition: background .1s ease; }
+.table tbody tr { transition: background .1s var(--ease); }
 .table tbody tr:hover { background: rgba(127,104,255,.07); }
 
 .badge.ok { background: rgba(40,209,124,.1); }
