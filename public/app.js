@@ -19,7 +19,6 @@ const state = {
   chat: [],
   dragging: null,
   layout: loadLayout(),
-  resizeObserver: null,
   priceMap: new Map(),
   stream: null,
   streamState: 'OFF',
@@ -212,6 +211,7 @@ function renderWorkspace() {
     for (const widgetId of layout[panelName]) panel.appendChild(createWidget(widgetId, panelName));
   }
   restorePanelWidths();
+  requestAnimationFrame(fitPriceChart); // size the chart to its laid-out height (no letterbox)
 }
 
 function createWidget(widgetId, panelName) {
@@ -228,14 +228,13 @@ function createWidget(widgetId, panelName) {
   refresh.addEventListener('click', (event) => { event.stopPropagation(); refreshWidget(widgetId); });
   actions.appendChild(refresh);
   if (spec?.big) {
+    template.classList.add('grow'); // big widgets claim a larger share of the panel height
     const big = document.createElement('button');
     big.textContent = 'BIG';
     big.title = '크게 보기';
     big.addEventListener('click', (event) => { event.stopPropagation(); openBigWidget(widgetId); });
     actions.appendChild(big);
   }
-  const savedSize = state.layout.sizes?.[widgetId];
-  if (savedSize?.height) template.style.height = `${savedSize.height}px`;
   template.addEventListener('dragstart', onWidgetDragStart);
   template.addEventListener('dragend', onWidgetDragEnd);
   template.addEventListener('dragover', onWidgetDragOver);
@@ -246,25 +245,7 @@ function createWidget(widgetId, panelName) {
   } catch (error) {
     body.innerHTML = `<div class="badge err">렌더 오류</div><pre>${escapeHtml(error.message)}</pre>`;
   }
-  observeWidgetResize(template, widgetId);
   return template;
-}
-
-function observeWidgetResize(element, widgetId) {
-  if (!state.resizeObserver) {
-    state.resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const id = entry.target.dataset.widgetId;
-        if (!id) continue;
-        const rect = entry.contentRect;
-        state.layout.sizes ||= {};
-        state.layout.sizes[id] = { height: Math.round(rect.height) };
-      }
-      clearTimeout(state.resizeSaveTimer);
-      state.resizeSaveTimer = setTimeout(saveLayout, 350);
-    });
-  }
-  state.resizeObserver.observe(element);
 }
 
 function onWidgetDragStart(event) {
@@ -735,9 +716,9 @@ function valuesForScale(candles) {
   return { min: Math.min(...lows), max: Math.max(...highs) };
 }
 
-function drawPriceChart(svg, candles, readout) {
+function drawPriceChart(svg, candles, readout, viewH = 330) {
   const width = 920;
-  const height = 330;
+  const height = Math.max(200, Math.round(viewH));
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   if (!candles.length) {
     svg.innerHTML = `<text x="20" y="40" fill="#7c8b94">데이터 없음 / API 필요 / 네트워크 오류</text>`;
@@ -752,9 +733,10 @@ function drawPriceChart(svg, candles, readout) {
   const yMin = min - pad;
   const yMax = max + pad;
   const volMax = Math.max(...candles.map((d) => Number(d.volume) || 0), 1);
+  const volH = Math.round(height * 0.16);
   const plotTop = 15;
-  const plotBottom = 260;
-  const volumeTop = 270;
+  const plotBottom = height - volH - 14;
+  const volumeTop = plotBottom + 8;
   const x = (i) => 40 + (i / Math.max(1, candles.length - 1)) * (width - 70);
   const y = (value) => plotBottom - ((value - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
   const candleWidth = Math.max(2, Math.min(10, (width - 90) / candles.length * 0.62));
@@ -764,9 +746,9 @@ function drawPriceChart(svg, candles, readout) {
     return `<line x1="35" x2="900" y1="${gy}" y2="${gy}" stroke="#16222a"/><text x="904" y="${gy + 4}" fill="#7c8b94" font-size="10">${fmt(value)}</text>`;
   }).join('');
   const volumeBars = candles.map((d, i) => {
-    const h = ((Number(d.volume) || 0) / volMax) * 48;
+    const h = ((Number(d.volume) || 0) / volMax) * volH;
     const cls = Number(d.close) >= Number(d.open) ? 'up-fill' : 'down-fill';
-    return `<rect class="${cls}" x="${x(i) - candleWidth / 2}" y="${volumeTop + 50 - h}" width="${candleWidth}" height="${h}" opacity="0.35"/>`;
+    return `<rect class="${cls}" x="${x(i) - candleWidth / 2}" y="${volumeTop + volH - h}" width="${candleWidth}" height="${h}" opacity="0.35"/>`;
   }).join('');
   const candlesSvg = candles.map((d, i) => {
     const cx = x(i);
@@ -808,9 +790,9 @@ function drawPriceChart(svg, candles, readout) {
   svg.onmouseleave = () => { crosshair.style.display = 'none'; if (readout) readout.textContent = ''; };
 }
 
-function drawComparison(svg, mainCandles, readout) {
+function drawComparison(svg, mainCandles, readout, viewH = 330) {
   const width = 920;
-  const height = 330;
+  const height = Math.max(200, Math.round(viewH));
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   const series = [{ symbol: state.chart.symbol, candles: mainCandles }, ...(state.compareSeries || [])]
     .map((s) => ({ symbol: s.symbol, closes: s.candles.map((c) => Number(c.close)).filter(Number.isFinite) }))
@@ -826,7 +808,7 @@ function drawComparison(svg, mainCandles, readout) {
   const yMin = min - pad;
   const yMax = max + pad;
   const plotTop = 20;
-  const plotBottom = 300;
+  const plotBottom = height - 30;
   const x = (i) => 40 + (i / Math.max(1, maxLen - 1)) * (width - 70);
   const y = (value) => plotBottom - ((value - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
   const grid = [0, .25, .5, .75, 1].map((p) => {
@@ -842,6 +824,19 @@ function drawComparison(svg, mainCandles, readout) {
   }).join('');
   svg.innerHTML = `${grid}${zero}${paths}${legend}<text x="690" y="12" fill="#7c8b94" font-size="10">정규화 비교 (시작점 대비 %)</text>`;
   if (readout) readout.textContent = '정규화 비교 모드';
+}
+
+// Redraw the price chart to match its real on-screen height so it fills the widget without
+// letterboxing (the SVG viewBox is fixed-width 920; height is derived from the live aspect).
+function fitPriceChart() {
+  const svg = $('#price-chart');
+  if (!svg || !state.chart) return;
+  const rect = svg.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const viewH = Math.round((rect.height * 920) / rect.width);
+  const readout = $('#chart-readout');
+  if (state.compareSymbols?.length) drawComparison(svg, state.chart.candles || [], readout, viewH);
+  else drawPriceChart(svg, state.chart.candles || [], readout, viewH);
 }
 
 function drawRsi(svg, candles) {
@@ -941,7 +936,7 @@ function renderNews(body, widgetId, options = {}) {
       <button id="news-load">LOAD</button>
       <span>${state.news ? statusBadge(state.news.status, state.news.statusMessage) : statusBadge('데이터 없음')}</span>
     </div>
-    <div class="scroll" style="max-height:${options.big ? '690px' : '420px'}; margin-top:6px" id="news-list"></div>`;
+    <div class="scroll" style="max-height:${options.big ? '690px' : 'none'}; margin-top:6px" id="news-list"></div>`;
   $('#news-load', body).addEventListener('click', async () => {
     state.activeSymbol = $('#news-symbol', body).value.trim().toUpperCase() || state.activeSymbol;
     await loadNews(); renderWorkspace();
@@ -1035,7 +1030,7 @@ function renderPortfolioTable(body, widgetId, options = {}) {
       <label title="매입 시점 환율(기준통화 1단위당 native). 입력하면 환차익을 분리 계산합니다.">Buy FX<input name="purchaseFxRate" type="number" step="0.0001"></label>
       <button>ADD / UPDATE</button>
     </form>
-    <div class="scroll" style="max-height:${options.big ? '640px' : '360px'}; margin-top:8px">
+    <div class="scroll" style="max-height:${options.big ? '640px' : 'none'}; margin-top:8px">
     <table class="table"><thead><tr><th>Symbol</th><th>Ccy</th><th>Qty</th><th>Last</th><th>Value</th><th>Value(${escapeHtml(base)})</th><th>P/L</th><th>Wgt</th><th>FX</th><th>Status</th><th></th></tr></thead><tbody>
       ${(state.portfolio.holdings || []).map((h) => `<tr>
         <td class="left"><button class="symbol-link" data-symbol="${escapeHtml(h.symbol)}">${escapeHtml(h.symbol)}</button></td><td>${escapeHtml(h.currency || '')}</td><td>${fmt(h.quantity)}</td><td>${fmt(h.lastPrice)}</td><td>${fmt(h.marketValueNative)}</td><td>${fmt(h.marketValueBase)}</td><td class="${clsChange(h.pnl)}" title="native ${signed(h.pnl)} / base ${signed(h.pnlBase)}">${signed(h.pnl)}</td><td>${pct(h.weight)}</td><td>${h.currency === base ? '<span class="badge">1.0000</span>' : (h.fxRate === null ? statusBadge('데이터 없음', h.fxStatus || '') : `<span class="badge ok" title="${escapeHtml(h.fxSource || '')}">${fmt(h.fxRate, 4)}</span>`)}</td><td>${statusBadge(h.priceStatus, h.quoteStatusMessage)}</td><td><button class="delete-holding" data-id="${escapeHtml(h.id)}">DEL</button></td>
@@ -1062,7 +1057,7 @@ function renderPortfolioGraph(body, widgetId, options = {}) {
   const holdings = (state.portfolio.holdings || []).filter((h) => Number.isFinite(Number(h.weight))).sort((a, b) => b.weight - a.weight);
   body.innerHTML = `
     <button id="portfolio-big">크게 보기</button>
-    <div class="stack" style="margin-top:8px; max-height:${options.big ? '700px' : '320px'}; overflow:auto">
+    <div class="stack" style="margin-top:8px; max-height:${options.big ? '700px' : 'none'}; overflow:auto">
       ${holdings.map((h) => `<div><div class="row" style="justify-content:space-between"><span>${escapeHtml(h.symbol)} / ${escapeHtml(h.sector || '')}</span><span>${pct(h.weight)}</span></div><div class="progress-bar ${h.rebalanceNeeded ? 'warn' : ''}"><div style="width:${Math.max(2, Math.min(100, h.weight || 0))}%"></div></div></div>`).join('') || '<div class="muted">표시할 평가액 데이터 없음</div>'}
     </div>`;
   $('#portfolio-big', body).addEventListener('click', () => openBigWidget('portfolio-graph'));
@@ -1080,7 +1075,7 @@ function renderPortfolioRisk(body) {
 }
 
 function renderOptionsChain(body, widgetId, options = {}) {
-  body.innerHTML = `<div class="row gap"><input id="option-symbol" value="${escapeHtml(state.activeSymbol)}"><button id="option-load">LOAD</button><span>${state.options ? statusBadge(state.options.status, state.options.statusMessage) : statusBadge('데이터 없음')}</span></div><div id="option-list" class="scroll" style="max-height:${options.big ? '690px' : '420px'}; margin-top:6px"></div>`;
+  body.innerHTML = `<div class="row gap"><input id="option-symbol" value="${escapeHtml(state.activeSymbol)}"><button id="option-load">LOAD</button><span>${state.options ? statusBadge(state.options.status, state.options.statusMessage) : statusBadge('데이터 없음')}</span></div><div id="option-list" class="scroll" style="max-height:${options.big ? '690px' : 'none'}; margin-top:6px"></div>`;
   $('#option-load', body).addEventListener('click', async () => { state.activeSymbol = $('#option-symbol', body).value.trim().toUpperCase() || state.activeSymbol; await loadOptions(); renderWorkspace(); });
   const list = $('#option-list', body);
   if (!state.options || state.options.symbol !== state.activeSymbol.replace(/\.(KS|KQ)$/u, '')) { loadOptions().then(renderWorkspace).catch((error) => { list.textContent = `옵션 데이터 없음: ${error.message}`; }); return; }
@@ -1261,7 +1256,7 @@ function renderAiAssistant(body, widgetId, options = {}) {
   body.innerHTML = `
     <div class="stack">
       <div class="row gap"><span>${statusBadge(state.meta?.providers?.gemini ? 'Gemini 연결' : '로컬 규칙', 'Gemini API 키가 없으면 로컬 요약이 사용됩니다.')}</span><span class="muted">컨텍스트: 시세/뉴스/차트/포트폴리오</span></div>
-      <div id="chat-log" class="scroll" style="max-height:${options.big ? '600px' : '310px'}"></div>
+      <div id="chat-log" class="scroll" style="max-height:${options.big ? '600px' : 'none'}"></div>
       <textarea class="ai-input" id="ai-question" placeholder="예: NVDA 최근 뉴스와 차트 기준 리스크를 요약해줘"></textarea>
       <button id="ai-send">ASK</button>
     </div>`;
@@ -1475,6 +1470,8 @@ function tickClock() {
 async function init() {
   tickClock(); setInterval(tickClock, 1000);
   installTabs(); installCommand(); installAuth(); installSplitters(); installKeyboard();
+  let chartResizeTimer;
+  window.addEventListener('resize', () => { clearTimeout(chartResizeTimer); chartResizeTimer = setTimeout(fitPriceChart, 150); });
   renderWorkspace();
   try {
     await loadMeta();

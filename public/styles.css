@@ -80,7 +80,10 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 .splitter { background: #111921; border-left: 1px solid #000; border-right: 1px solid #000; cursor: col-resize; }
 .splitter:hover { background: var(--accent); }
 
-.widget { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line); min-height: 150px; resize: both; overflow: auto; box-shadow: inset 0 1px 0 rgba(255,255,255,.02); }
+/* Widgets tile to fill their panel's height: flex column, body scrolls internally.
+   This uses the empty bottom of each column and gives content more room (less scrolling). */
+.widget { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid var(--line); min-height: 150px; overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.02); display: flex; flex-direction: column; flex: 1 1 0; }
+.widget.grow { flex: 2.4 1 0; } /* share by weight, not content size, so a long news list can't squeeze the chart */
 .widget.dragging { opacity: .35; }
 .widget.drop-target { outline: 2px solid var(--accent); }
 .widget-header { height: 31px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 7px; border-bottom: 1px solid var(--line); background: #070b0e; cursor: move; position: sticky; top: 0; z-index: 1; }
@@ -88,14 +91,15 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 .widget-subtitle { font-size: 10px; color: var(--muted); margin-left: 7px; }
 .widget-actions { display: flex; gap: 4px; align-items: center; }
 .widget-actions button { padding: 2px 6px; font-size: 10px; }
-.widget-body { padding: 7px; font-size: 12px; min-height: 80px; }
+.widget-body { padding: 7px; font-size: 12px; min-height: 0; overflow: auto; flex: 1 1 auto; }
+.widget-body > .chart-wrap { height: 100%; min-height: 300px; }
 
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .row { display: flex; align-items: center; }
 .gap { gap: 6px; }
 .stack { display: grid; gap: 7px; }
-.scroll { overflow: auto; max-height: 360px; }
+.scroll { overflow: auto; }
 .muted { color: var(--muted); }
 .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .metric { padding: 6px; border: 1px solid var(--line); background: #06090d; }
@@ -212,6 +216,10 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); outline
   .splitter { display: none; }
   .panel { overflow: visible; }
   .left-panel, .right-panel { display: none; }
-  #app-shell { overflow: auto; }
+  #app-shell { overflow: auto; height: auto; min-height: 100vh; }
   html, body { overflow: auto; }
+  /* On mobile, widgets stack at content height (no flex-fill) and the page scrolls. */
+  .widget { flex: 0 0 auto; min-height: 0; }
+  .widget-body { overflow: visible; }
+  .scroll { max-height: 70vh; }
 }
