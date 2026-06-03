@@ -30,7 +30,7 @@ function safeUser(user) {
 
 function defaultSettings() {
   return {
-    defaultSymbol: 'AAPL',
+    defaultSymbol: 'BTC-USD',
     language: 'ko',
     aiProvider: config.geminiApiKey ? 'gemini' : 'local',
     orderMode: 'paper',
@@ -108,7 +108,7 @@ export class JsonStore {
       password: hashPassword(password),
       createdAt: new Date().toISOString(),
       settings: defaultSettings(),
-      watchlist: ['AAPL', 'MSFT', 'NVDA', 'SPY', 'QQQ', '005930.KS'],
+      watchlist: ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BTC-KRW'],
       apiKeys: {},
       portfolio: defaultPortfolio()
     };

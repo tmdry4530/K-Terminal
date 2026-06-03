@@ -21,7 +21,12 @@ export const CRYPTO_UNIVERSE = [
   { symbol: 'ETH-USD', label: 'ETH', kind: 'crypto' },
   { symbol: 'SOL-USD', label: 'SOL', kind: 'crypto' },
   { symbol: 'XRP-USD', label: 'XRP', kind: 'crypto' },
-  { symbol: 'BTC-KRW', label: 'BTC/KRW', kind: 'crypto' }
+  { symbol: 'BNB-USD', label: 'BNB', kind: 'crypto' },
+  { symbol: 'ADA-USD', label: 'ADA', kind: 'crypto' },
+  { symbol: 'DOGE-USD', label: 'DOGE', kind: 'crypto' },
+  { symbol: 'AVAX-USD', label: 'AVAX', kind: 'crypto' },
+  { symbol: 'BTC-KRW', label: 'BTC/KRW', kind: 'crypto' },
+  { symbol: 'ETH-KRW', label: 'ETH/KRW', kind: 'crypto' }
 ];
 
 const CRYPTO_HEADERS = Object.freeze({

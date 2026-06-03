@@ -243,7 +243,7 @@ async function routeApi(req, res, url) {
   }
 
   if (method === 'GET' && pathname === '/api/market/chart') {
-    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'AAPL';
+    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'BTC-USD';
     const range = url.searchParams.get('range') || '1Y';
     const interval = url.searchParams.get('interval') || '1D';
     const chart = await getChart(symbol, range, interval, userApiKeys);
@@ -252,14 +252,14 @@ async function routeApi(req, res, url) {
   }
 
   if (method === 'GET' && pathname === '/api/news') {
-    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'AAPL';
+    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'BTC-USD';
     const news = await getNewsWithOptionalTranslation(symbol, userApiKeys);
     sendJson(res, 200, news);
     return;
   }
 
   if (method === 'GET' && pathname === '/api/filings/sec') {
-    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'AAPL';
+    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'BTC-USD';
     const result = await getSecFilings(symbol);
     sendJson(res, 200, result);
     return;
@@ -273,7 +273,7 @@ async function routeApi(req, res, url) {
   }
 
   if (method === 'GET' && pathname === '/api/options') {
-    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'AAPL';
+    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'BTC-USD';
     const result = await getOptions(symbol);
     sendJson(res, 200, result);
     return;

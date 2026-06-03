@@ -19,7 +19,7 @@
       </nav>
       <div class="command-box">
         <span>LLM &lt;GO&gt;</span>
-        <input id="command-input" type="text" list="command-list" placeholder="티커/명령 (/ 포커스, ? 도움말): AAPL / NEWS NVDA / PORT" autocomplete="off" aria-label="명령 입력" />
+        <input id="command-input" type="text" list="command-list" placeholder="코인/명령 (/ 포커스, ? 도움말): BTC-USD / NEWS ETH-USD / PORT" autocomplete="off" aria-label="명령 입력" />
         <datalist id="command-list"></datalist>
       </div>
       <button id="ai-copilot" class="ai-button">AI COPILOT</button>
@@ -38,8 +38,6 @@
       <button data-tab="chart">차트</button>
       <button data-tab="news">뉴스</button>
       <button data-tab="portfolio">포트폴리오</button>
-      <button data-tab="options">옵션</button>
-      <button data-tab="crypto">크립토</button>
       <button data-tab="order">주문</button>
       <button data-tab="ai">AI</button>
     </section>
@@ -55,7 +53,7 @@
     <footer class="statusbar">
       <div>데이터 정책: 실제 데이터 / 지연 데이터 / API 필요 / 데이터 없음 명확 표시</div>
       <div id="connection-state">연결 확인 중</div>
-      <div id="active-symbol-status">AAPL</div>
+      <div id="active-symbol-status">BTC-USD</div>
     </footer>
   </div>
 
@@ -91,13 +89,13 @@
       <header><strong>키보드 단축키</strong><button value="cancel" class="icon-button" aria-label="닫기">×</button></header>
       <table class="table"><tbody>
         <tr><td class="left"><kbd>/</kbd></td><td class="left">명령창 포커스</td></tr>
-        <tr><td class="left"><kbd>1</kbd>–<kbd>9</kbd></td><td class="left">탭 전환 (시장·모니터·차트·뉴스·포트폴리오·옵션·크립토·주문·AI)</td></tr>
+        <tr><td class="left"><kbd>1</kbd>–<kbd>7</kbd></td><td class="left">탭 전환 (시장·모니터·차트·뉴스·포트폴리오·주문·AI)</td></tr>
         <tr><td class="left"><kbd>r</kbd></td><td class="left">현재 화면 데이터 새로고침</td></tr>
         <tr><td class="left"><kbd>a</kbd></td><td class="left">AI 코파일럿</td></tr>
         <tr><td class="left"><kbd>?</kbd></td><td class="left">이 도움말 열기/닫기</td></tr>
         <tr><td class="left"><kbd>Esc</kbd></td><td class="left">닫기</td></tr>
       </tbody></table>
-      <div class="muted">명령창: 티커→차트, <code>NEWS NVDA</code>, <code>PORT</code>, <code>AI 질문</code>. 빈 입력에서 <kbd>↑</kbd>로 최근 명령 호출, 입력 중 자동완성 제공.</div>
+      <div class="muted">명령창: 코인→차트, <code>NEWS ETH-USD</code>, <code>PORT</code>, <code>AI 질문</code>. 빈 입력에서 <kbd>↑</kbd>로 최근 명령 호출, 입력 중 자동완성 제공.</div>
     </form>
   </dialog>
 

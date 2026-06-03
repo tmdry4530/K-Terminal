@@ -5,7 +5,7 @@ const state = {
   meta: null,
   user: null,
   activeTab: 'market',
-  activeSymbol: localStorage.getItem('kt.activeSymbol') || 'AAPL',
+  activeSymbol: localStorage.getItem('kt.activeSymbol') || 'BTC-USD',
   range: localStorage.getItem('kt.range') || '1Y',
   interval: localStorage.getItem('kt.interval') || '1D',
   snapshot: null,
@@ -29,39 +29,29 @@ const state = {
 
 const DEFAULT_VIEWS = {
   market: {
-    left: ['market-pulse', 'watchlist', 'data-sources', 'alerts'],
-    center: ['chart', 'rates-commodities', 'news'],
-    right: ['ai-assistant', 'sec-filings', 'order-ticket']
+    left: ['market-pulse', 'watchlist', 'alerts'],
+    center: ['chart', 'crypto-monitor', 'news'],
+    right: ['ai-assistant', 'order-ticket', 'data-sources']
   },
   monitor: {
     left: ['watchlist', 'market-pulse'],
-    center: ['monitor-grid', 'chart'],
-    right: ['news', 'calendar', 'data-sources']
+    center: ['crypto-monitor', 'chart'],
+    right: ['news', 'ai-assistant', 'data-sources']
   },
   chart: {
-    left: ['watchlist', 'data-sources'],
+    left: ['watchlist', 'market-pulse'],
     center: ['chart'],
-    right: ['ai-assistant', 'options-chain']
+    right: ['ai-assistant', 'alerts']
   },
   news: {
     left: ['watchlist', 'market-pulse'],
-    center: ['news', 'sec-filings', 'dart-filings'],
-    right: ['ai-assistant', 'calendar', 'data-sources']
+    center: ['news'],
+    right: ['ai-assistant', 'crypto-monitor', 'data-sources']
   },
   portfolio: {
     left: ['portfolio-summary', 'portfolio-risk'],
     center: ['portfolio-table', 'portfolio-graph'],
-    right: ['order-ticket', 'ai-assistant', 'settings']
-  },
-  options: {
-    left: ['watchlist', 'data-sources'],
-    center: ['options-chain', 'chart'],
-    right: ['order-ticket', 'ai-assistant']
-  },
-  crypto: {
-    left: ['watchlist', 'data-sources'],
-    center: ['crypto-monitor', 'chart'],
-    right: ['ai-assistant', 'alerts']
+    right: ['order-ticket', 'ai-assistant', 'alerts']
   },
   order: {
     left: ['watchlist', 'portfolio-summary'],
@@ -71,7 +61,7 @@ const DEFAULT_VIEWS = {
   ai: {
     left: ['market-pulse', 'watchlist'],
     center: ['ai-assistant'],
-    right: ['news', 'sec-filings', 'portfolio-summary']
+    right: ['news', 'crypto-monitor', 'portfolio-summary']
   }
 };
 
@@ -330,7 +320,7 @@ async function loadMeta() {
 
 async function loadSnapshot() {
   try {
-    const symbols = state.meta?.marketUniverse?.map((item) => item.symbol).join(',') || '^GSPC,^IXIC,^DJI,^VIX,^TNX,GC=F,CL=F,KRW=X,SPY,QQQ,005930.KS';
+    const symbols = state.meta?.cryptoUniverse?.map((item) => item.symbol).join(',') || 'BTC-USD,ETH-USD,SOL-USD,XRP-USD,BNB-USD,ADA-USD,DOGE-USD,AVAX-USD,BTC-KRW,ETH-KRW';
     state.snapshot = await api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols)}`);
     renderIndexStrip();
     setStatus('시장 데이터 갱신 완료');
@@ -376,7 +366,7 @@ async function loadWatchlistQuotes() {
 }
 
 function currentWatchlist() {
-  const fallback = ['AAPL', 'MSFT', 'NVDA', 'SPY', 'QQQ', '005930.KS'];
+  const fallback = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BTC-KRW'];
   const fromUser = state.user?.watchlist;
   const fromLocal = JSON.parse(localStorage.getItem('kt.watchlist') || 'null');
   return (fromUser?.length ? fromUser : fromLocal?.length ? fromLocal : fallback).slice(0, 60);
@@ -458,7 +448,7 @@ function setStreamState(status) {
 function mergeStreamSnapshot(snap) {
   const quotes = snap.quotes || [];
   const map = new Map(quotes.map((q) => [q.symbol, q]));
-  const universe = state.meta?.marketUniverse?.map((item) => item.symbol) || [];
+  const universe = state.meta?.cryptoUniverse?.map((item) => item.symbol) || [];
   state.snapshot = {
     updatedAt: snap.updatedAt,
     provider: snap.provider,
@@ -493,7 +483,8 @@ function stopStream() {
 }
 
 function labelFor(symbol) {
-  return state.meta?.marketUniverse?.find((item) => item.symbol === symbol)?.label || symbol;
+  const universes = [...(state.meta?.cryptoUniverse || []), ...(state.meta?.marketUniverse || [])];
+  return universes.find((item) => item.symbol === symbol)?.label || symbol;
 }
 
 function regimeGauge(avg, regime) {
@@ -545,7 +536,7 @@ function renderWatchlist(body) {
   const list = currentWatchlist();
   body.innerHTML = `
     <form class="row gap" id="watchlist-form">
-      <input name="symbol" placeholder="AAPL / 005930.KS" />
+      <input name="symbol" placeholder="BTC-USD / ETH-KRW" />
       <button>ADD</button>
     </form>
     <div class="scroll" style="margin-top:6px" id="watchlist-table">${skeletonBlock(5)}</div>
@@ -613,7 +604,7 @@ function renderRatesCommodities(body) {
 }
 
 function renderMonitorGrid(body) {
-  const symbols = ['AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META', 'SPY', 'QQQ', 'VTI', '005930.KS', '000660.KS'];
+  const symbols = state.meta?.cryptoUniverse?.map((item) => item.symbol) || ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BNB-USD', 'ADA-USD', 'DOGE-USD', 'AVAX-USD', 'BTC-KRW', 'ETH-KRW'];
   body.innerHTML = `<div id="monitor-grid-body">${skeletonBlock(6)}</div>`;
   api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
     $('#monitor-grid-body', body).innerHTML = `
@@ -667,7 +658,7 @@ function renderChartWidget(body, widgetId, options = {}) {
         <input id="chart-symbol" value="${escapeHtml(state.activeSymbol)}" aria-label="차트 심볼" />
         <select id="chart-range" aria-label="기간">${['1M', '3M', '6M', '1Y', '2Y', '5Y', '10Y'].map((r) => `<option ${state.range === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
         <select id="chart-interval" aria-label="인터벌">${['1D', '1W', '1M'].map((r) => `<option ${state.interval === r ? 'selected' : ''}>${r}</option>`).join('')}</select>
-        <input id="chart-compare" value="${escapeHtml((state.compareSymbols || []).join(','))}" placeholder="비교: MSFT,SPY" aria-label="비교 심볼" style="width:120px" />
+        <input id="chart-compare" value="${escapeHtml((state.compareSymbols || []).join(','))}" placeholder="비교: ETH-USD,SOL-USD" aria-label="비교 심볼" style="width:130px" />
         <button id="chart-load">LOAD</button>
         <span>${state.chart ? statusBadge(state.chart.status, state.chart.statusMessage) : statusBadge('데이터 없음')}</span>
         <span class="muted">${escapeHtml(state.chart?.source || '데이터 로드 전')}</span>
@@ -679,7 +670,7 @@ function renderChartWidget(body, widgetId, options = {}) {
     </div>
   `;
   const load = async () => {
-    state.activeSymbol = $('#chart-symbol', body).value.trim().toUpperCase() || 'AAPL';
+    state.activeSymbol = $('#chart-symbol', body).value.trim().toUpperCase() || 'BTC-USD';
     state.range = $('#chart-range', body).value;
     state.interval = $('#chart-interval', body).value;
     state.compareSymbols = $('#chart-compare', body).value.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, 4);
@@ -1328,7 +1319,7 @@ async function selectSymbol(symbol) {
   state.activeTab = 'chart';
   updateTabs();
   renderWorkspace();
-  setTimeout(() => Promise.allSettled([loadChart(), loadNews(), loadSec(), loadOptions()]).then(renderWorkspace), 0);
+  setTimeout(() => Promise.allSettled([loadChart(), loadNews()]).then(renderWorkspace), 0);
 }
 
 function updateTabs() {
@@ -1351,9 +1342,8 @@ function installTabs() {
 
 function backgroundLoadForTab(tab) {
   if (tab === 'chart') loadChart().then(renderWorkspace).catch(() => {});
-  if (tab === 'news') Promise.allSettled([loadNews(), loadSec(), loadDart()]).then(renderWorkspace);
+  if (tab === 'news') loadNews().then(renderWorkspace).catch(() => {});
   if (tab === 'portfolio') loadPortfolio().then(renderWorkspace).catch(() => {});
-  if (tab === 'options') loadOptions().then(renderWorkspace).catch(() => {});
 }
 
 function pushCommandHistory(raw) {
@@ -1367,9 +1357,8 @@ function updateCommandList() {
   if (!list) return;
   const symbols = [...new Set([
     ...currentWatchlist(),
-    ...(state.meta?.marketUniverse?.map((item) => item.symbol) || []),
     ...(state.meta?.cryptoUniverse?.map((item) => item.symbol) || []),
-    'AAPL', 'MSFT', 'NVDA', 'TSLA', 'AMZN', 'GOOGL', 'META', 'SPY', 'QQQ'
+    'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BNB-USD', 'ADA-USD', 'DOGE-USD', 'AVAX-USD', 'BTC-KRW', 'ETH-KRW'
   ])];
   const options = [...state.cmdHistory, ...symbols, 'NEWS ', 'PORT', 'AI '];
   list.innerHTML = options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
@@ -1478,7 +1467,7 @@ async function init() {
     renderWorkspace();
     await loadSnapshot();
     renderWorkspace();
-    setTimeout(() => Promise.allSettled([loadWatchlistQuotes(), loadChart(), loadNews(), loadSec()]).then(renderWorkspace), 50);
+    setTimeout(() => Promise.allSettled([loadWatchlistQuotes(), loadChart(), loadNews()]).then(renderWorkspace), 50);
     startStream();
     // Fallback polling only kicks in when the live SSE stream is not connected.
     setInterval(() => { if (state.streamState !== 'LIVE') loadSnapshot().then(renderWorkspace).catch(() => {}); }, 60_000);

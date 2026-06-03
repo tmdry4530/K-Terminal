@@ -1,4 +1,5 @@
-import { getSnapshot, MARKET_UNIVERSE } from './marketData.js';
+import { getSnapshot } from './marketData.js';
+import { CRYPTO_UNIVERSE } from './cryptoMarket.js';
 
 const HEARTBEAT_MS = 15000;
 const DEFAULT_INTERVAL_MS = 5000;
@@ -15,7 +16,7 @@ export function createQuoteStream({ intervalMs = DEFAULT_INTERVAL_MS, fetchSnaps
   let eventId = 0;
 
   function unionSymbols() {
-    const set = new Set(MARKET_UNIVERSE.map((item) => item.symbol));
+    const set = new Set(CRYPTO_UNIVERSE.map((item) => item.symbol));
     for (const client of clients) for (const symbol of client.symbols) set.add(symbol);
     return [...set].slice(0, MAX_SYMBOLS);
   }
