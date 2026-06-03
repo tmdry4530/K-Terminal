@@ -27,7 +27,7 @@ const state = {
 
 const DEFAULT_VIEWS = {
   market: {
-    left: ['market-pulse', 'watchlist', 'data-sources'],
+    left: ['market-pulse', 'watchlist', 'data-sources', 'alerts'],
     center: ['chart', 'rates-commodities', 'news'],
     right: ['ai-assistant', 'sec-filings', 'order-ticket']
   },
@@ -59,7 +59,7 @@ const DEFAULT_VIEWS = {
   order: {
     left: ['watchlist', 'portfolio-summary'],
     center: ['order-ticket', 'order-history'],
-    right: ['data-sources', 'settings']
+    right: ['alerts', 'data-sources', 'settings']
   },
   ai: {
     left: ['market-pulse', 'watchlist'],
@@ -83,6 +83,7 @@ const WIDGETS = {
   'options-chain': { title: 'OPTIONS', subtitle: '옵션 체인', render: renderOptionsChain, big: true },
   'order-ticket': { title: 'ORDER & EXECUTION', subtitle: 'Paper 기본', render: renderOrderTicket },
   'order-history': { title: 'ORDER HISTORY', subtitle: '모의 주문', render: renderOrderHistory },
+  alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
   'ai-assistant': { title: 'AI ASSISTANT', subtitle: 'Gemini/로컬', render: renderAiAssistant, big: true },
   settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
   'rates-commodities': { title: 'RATES / FX / COMMODITIES', subtitle: '금리/환율/원자재', render: renderRatesCommodities },
@@ -337,6 +338,7 @@ async function loadChart() {
   localStorage.setItem('kt.interval', state.interval);
   state.chart = await api(`/api/market/chart?symbol=${encodeURIComponent(state.activeSymbol)}&range=${encodeURIComponent(state.range)}&interval=${encodeURIComponent(state.interval)}`);
   $('#active-symbol-status').textContent = `${state.activeSymbol} ${state.range}/${state.interval} ${state.chart.status}`;
+  evaluateAlerts(state.watchlistQuotes?.quotes || state.snapshot?.quotes || []); // RSI alerts use fresh chart
 }
 
 async function loadNews() {
@@ -471,6 +473,7 @@ function startStream() {
     mergeStreamSnapshot(snap);
     renderIndexStrip();              // flashes the strip against the previous priceMap
     applyLiveQuotes(snap.quotes);    // flashes table cells and advances priceMap
+    evaluateAlerts(snap.quotes);     // check price/%-change alerts against the live tick
     setStreamState('LIVE');
   });
   es.onerror = () => setStreamState('RECONNECT'); // EventSource reconnects automatically
@@ -976,6 +979,134 @@ function renderOrderHistory(body) {
   api('/api/trading/orders').then((data) => {
     $('#orders', body).innerHTML = `<table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Type</th><th>Status</th></tr></thead><tbody>${(data.orders || []).map((o) => `<tr><td>${escapeHtml(o.createdAt?.slice(0, 16).replace('T', ' ') || '')}</td><td>${escapeHtml(o.symbol)}</td><td>${escapeHtml(o.side)}</td><td>${fmt(o.quantity)}</td><td>${escapeHtml(o.type)}</td><td>${escapeHtml(o.brokerStatus || o.status)}</td></tr>`).join('') || '<tr><td>주문 기록 없음</td><td colspan="5"></td></tr>'}</tbody></table>`;
   }).catch((error) => { $('#orders', body).textContent = error.message; });
+}
+
+const ALERT_TYPES = [
+  ['price_above', '가격 ≥'],
+  ['price_below', '가격 ≤'],
+  ['pct_change', '|변동%| ≥'],
+  ['rsi_above', 'RSI ≥'],
+  ['rsi_below', 'RSI ≤']
+];
+
+function currentAlerts() {
+  const fromUser = state.user?.settings?.alerts;
+  const fromLocal = JSON.parse(localStorage.getItem('kt.alerts') || 'null');
+  return (fromUser?.length ? fromUser : fromLocal?.length ? fromLocal : []).slice(0, 100);
+}
+
+async function saveAlerts(list) {
+  const clean = list.slice(0, 100);
+  localStorage.setItem('kt.alerts', JSON.stringify(clean));
+  if (state.user) {
+    const result = await api('/api/settings', { method: 'PUT', body: { alerts: clean } });
+    state.user = result.user;
+  }
+}
+
+function alertCondLabel(alert) {
+  const label = (ALERT_TYPES.find(([value]) => value === alert.type) || [])[1] || alert.type;
+  return `${label} ${alert.value}`;
+}
+
+function ensureNotificationPermission() {
+  if (window.Notification && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function showToast(message, kind = '') {
+  let host = $('#toast-host');
+  if (!host) { host = document.createElement('div'); host.id = 'toast-host'; document.body.appendChild(host); }
+  const toast = document.createElement('div');
+  toast.className = `toast ${kind}`.trim();
+  toast.textContent = message;
+  host.appendChild(toast);
+  setTimeout(() => { toast.classList.add('out'); setTimeout(() => toast.remove(), 400); }, 6000);
+}
+
+function fireAlert(alert, detail) {
+  showToast(`알림 발동: ${detail}`, 'warn');
+  if (window.Notification && Notification.permission === 'granted') {
+    try { new Notification('K Terminal 알림', { body: detail }); } catch { /* ignore */ }
+  }
+}
+
+// Client-side evaluation against the live stream (price/%-change) and the active chart (RSI).
+function evaluateAlerts(quotes) {
+  const alerts = currentAlerts();
+  if (!alerts.length) return;
+  const now = Date.now();
+  const bySymbol = new Map((quotes || []).map((q) => [q.symbol, q]));
+  let changed = false;
+  for (const alert of alerts) {
+    if (!alert.enabled) continue;
+    if (alert.snoozedUntil && now < alert.snoozedUntil) continue;
+    const quote = bySymbol.get(alert.symbol);
+    let hit = false;
+    let detail = '';
+    if (['price_above', 'price_below', 'pct_change'].includes(alert.type) && quote && quote.price != null) {
+      if (alert.type === 'price_above' && quote.price >= alert.value) { hit = true; detail = `${alert.symbol} ${fmt(quote.price)} ≥ ${alert.value}`; }
+      else if (alert.type === 'price_below' && quote.price <= alert.value) { hit = true; detail = `${alert.symbol} ${fmt(quote.price)} ≤ ${alert.value}`; }
+      else if (alert.type === 'pct_change' && Number.isFinite(quote.changePercent) && Math.abs(quote.changePercent) >= alert.value) { hit = true; detail = `${alert.symbol} ${pct(quote.changePercent)} (|Δ| ≥ ${alert.value}%)`; }
+    } else if (['rsi_above', 'rsi_below'].includes(alert.type) && state.chart?.symbol === alert.symbol) {
+      const value = rsi(state.chart.candles.map((c) => Number(c.close)), 14).at(-1);
+      if (Number.isFinite(value)) {
+        if (alert.type === 'rsi_above' && value >= alert.value) { hit = true; detail = `${alert.symbol} RSI ${value.toFixed(1)} ≥ ${alert.value}`; }
+        else if (alert.type === 'rsi_below' && value <= alert.value) { hit = true; detail = `${alert.symbol} RSI ${value.toFixed(1)} ≤ ${alert.value}`; }
+      }
+    }
+    if (hit) {
+      alert.triggeredAt = new Date().toISOString();
+      alert.snoozedUntil = now + 10 * 60 * 1000; // auto-snooze 10m to avoid repeat spam
+      fireAlert(alert, detail);
+      changed = true;
+    }
+  }
+  if (changed) saveAlerts(alerts).catch(() => {});
+}
+
+function renderAlerts(body) {
+  const alerts = currentAlerts();
+  body.innerHTML = `
+    <form class="form-grid compact" id="alert-form">
+      <label>Symbol<input name="symbol" value="${escapeHtml(state.activeSymbol)}" required></label>
+      <label>Type<select name="type">${ALERT_TYPES.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label>
+      <label>Value<input name="value" type="number" step="0.0001" required></label>
+      <button>ADD</button>
+    </form>
+    <div class="scroll" style="margin-top:6px">
+      <table class="table"><thead><tr><th>Symbol</th><th>Condition</th><th>State</th><th></th></tr></thead><tbody>
+      ${alerts.map((alert, index) => `<tr>
+        <td class="left">${escapeHtml(alert.symbol)}</td>
+        <td>${escapeHtml(alertCondLabel(alert))}</td>
+        <td>${alert.enabled ? (alert.triggeredAt ? statusBadge('발동', alert.triggeredAt) : statusBadge('대기')) : statusBadge('중지')}</td>
+        <td><button data-index="${index}" class="alert-toggle">${alert.enabled ? 'OFF' : 'ON'}</button> <button data-index="${index}" class="alert-del">DEL</button></td>
+      </tr>`).join('') || '<tr><td>알림 없음</td><td colspan="3"></td></tr>'}
+      </tbody></table>
+    </div>
+    <div class="muted" style="margin-top:6px">알림은 실시간 스트림(가격/변동%)과 현재 차트(RSI) 기준으로 브라우저에서 평가됩니다. 알림이 울리면 10분간 자동 스누즈됩니다.</div>`;
+  $('#alert-form', body).addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const value = Number(data.value);
+    if (!data.symbol || !Number.isFinite(value)) return;
+    ensureNotificationPermission();
+    const next = [...alerts, { id: `al_${Date.now()}`, symbol: String(data.symbol).toUpperCase(), type: data.type, value, enabled: true, triggeredAt: null, snoozedUntil: 0 }];
+    await saveAlerts(next);
+    renderWorkspace();
+  });
+  $$('.alert-toggle', body).forEach((button) => button.addEventListener('click', async () => {
+    const list = currentAlerts();
+    const alert = list[Number(button.dataset.index)];
+    if (alert) { alert.enabled = !alert.enabled; alert.snoozedUntil = 0; alert.triggeredAt = alert.enabled ? null : alert.triggeredAt; await saveAlerts(list); renderWorkspace(); }
+  }));
+  $$('.alert-del', body).forEach((button) => button.addEventListener('click', async () => {
+    const list = currentAlerts();
+    list.splice(Number(button.dataset.index), 1);
+    await saveAlerts(list);
+    renderWorkspace();
+  }));
 }
 
 function renderAiAssistant(body, widgetId, options = {}) {

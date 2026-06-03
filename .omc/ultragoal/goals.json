@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:27:46.878Z",
+  "updatedAt": "2026-06-03T13:33:27.156Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -59,20 +59,23 @@
       "id": "G005-real-time-streaming-via-sse",
       "title": "Real-time streaming via SSE",
       "objective": "Add multiplexed /api/stream Server-Sent Events endpoint with heartbeat and cleanup; server poller refreshes index/watchlist snapshot on interval via cache and pushes to subscribers; client EventSource with auto-reconnect, flash-on-update (respect prefers-reduced-motion), live connection-status badge; wire SSE into graceful shutdown.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:27:46.878Z",
-      "startedAt": "2026-06-03T13:27:46.878Z"
+      "updatedAt": "2026-06-03T13:31:55.175Z",
+      "startedAt": "2026-06-03T13:27:46.878Z",
+      "completedAt": "2026-06-03T13:31:55.175Z",
+      "evidence": "Commit 91e1752. src/stream.js multiplexed SSE (poller, heartbeat, cleanup, closeAll) wired to GET /api/stream + shutdown task. app.js EventSource w/ flash-on-update (index strip + watchlist/monitor cells), LIVE/RECONNECT/OFF badge, reduced-motion guard, 60s fallback poll, resubscribe on watchlist change. Live-verified: text/event-stream headers + snapshot frames every 5s. 25 tests pass."
     },
     {
       "id": "G006-price-indicator-alerts",
       "title": "Price & indicator alerts",
       "objective": "Implement alerts (settings.alerts schema exists): create/list/delete price-cross, percent-change, RSI-threshold alerts; evaluate client-side against live stream; fire Notification API + in-app toast; alert-center widget to manage/snooze/disable; persist per-user and in localStorage for guests.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:33:27.156Z",
+      "startedAt": "2026-06-03T13:33:27.156Z"
     },
     {
       "id": "G007-crypto-assets",
@@ -112,5 +115,5 @@
     }
   ],
   "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G005-real-time-streaming-via-sse"
+  "activeGoalId": "G006-price-indicator-alerts"
 }

@@ -137,6 +137,11 @@ textarea.ai-input { width: 100%; min-height: 70px; resize: vertical; }
 .progress-bar.warn > div { background: linear-gradient(90deg, #6a4e1d, #d39a33); }
 .progress-bar.err > div { background: linear-gradient(90deg, #65232a, #df5460); }
 
+#toast-host { position: fixed; right: 12px; bottom: 36px; display: flex; flex-direction: column; gap: 6px; z-index: 1000; }
+.toast { background: #0c1419; border: 1px solid var(--line-strong); border-left: 3px solid var(--accent); padding: 8px 12px; font-size: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.5); max-width: 320px; opacity: 1; transition: opacity .4s ease; }
+.toast.warn { border-left-color: var(--amber); }
+.toast.out { opacity: 0; }
+
 @media (max-width: 1100px) {
   :root { --left-width: 240px; --right-width: 260px; }
   .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
