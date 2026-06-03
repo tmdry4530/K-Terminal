@@ -56,6 +56,11 @@ const DEFAULT_VIEWS = {
     center: ['options-chain', 'chart'],
     right: ['order-ticket', 'ai-assistant']
   },
+  crypto: {
+    left: ['watchlist', 'data-sources'],
+    center: ['crypto-monitor', 'chart'],
+    right: ['ai-assistant', 'alerts']
+  },
   order: {
     left: ['watchlist', 'portfolio-summary'],
     center: ['order-ticket', 'order-history'],
@@ -87,7 +92,8 @@ const WIDGETS = {
   'ai-assistant': { title: 'AI ASSISTANT', subtitle: 'Gemini/로컬', render: renderAiAssistant, big: true },
   settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
   'rates-commodities': { title: 'RATES / FX / COMMODITIES', subtitle: '금리/환율/원자재', render: renderRatesCommodities },
-  'monitor-grid': { title: 'MARKET MONITOR', subtitle: '주식/ETF/한국', render: renderMonitorGrid }
+  'monitor-grid': { title: 'MARKET MONITOR', subtitle: '주식/ETF/한국', render: renderMonitorGrid },
+  'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor }
 };
 
 function loadLayout() {
@@ -463,7 +469,8 @@ function mergeStreamSnapshot(snap) {
 function startStream() {
   if (typeof EventSource === 'undefined') return;
   stopStream();
-  const symbols = currentWatchlist().join(',');
+  const cryptoSymbols = state.meta?.cryptoUniverse?.map((item) => item.symbol) || [];
+  const symbols = [...new Set([...currentWatchlist(), ...cryptoSymbols])].join(',');
   const es = new EventSource(`/api/stream?symbols=${encodeURIComponent(symbols)}`);
   state.stream = es;
   es.addEventListener('open', () => setStreamState('LIVE'));
@@ -593,6 +600,20 @@ function renderMonitorGrid(body) {
       </tbody></table>`;
     $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
   }).catch((error) => { $('#monitor-grid-body', body).textContent = `데이터 없음: ${error.message}`; });
+}
+
+function renderCryptoMonitor(body) {
+  const universe = state.meta?.cryptoUniverse || [];
+  const symbols = universe.map((item) => item.symbol);
+  body.innerHTML = '<div id="crypto-monitor-body">로딩 중</div>';
+  if (!symbols.length) { $('#crypto-monitor-body', body).textContent = '암호화폐 유니버스 정보 없음'; return; }
+  api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
+    $('#crypto-monitor-body', body).innerHTML = `
+      <table class="table"><thead><tr><th>Symbol</th><th>Px</th><th>Chg%</th><th>Ccy</th><th>Status</th></tr></thead><tbody>
+      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${pct(q.changePercent)}</td><td>${escapeHtml(q.currency || '')}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
+      </tbody></table>`;
+    $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
+  }).catch((error) => { $('#crypto-monitor-body', body).textContent = `데이터 없음: ${error.message}`; });
 }
 
 function renderChartWidget(body, widgetId, options = {}) {

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:33:27.156Z",
+  "updatedAt": "2026-06-03T13:36:28.615Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -71,20 +71,23 @@
       "id": "G006-price-indicator-alerts",
       "title": "Price & indicator alerts",
       "objective": "Implement alerts (settings.alerts schema exists): create/list/delete price-cross, percent-change, RSI-threshold alerts; evaluate client-side against live stream; fire Notification API + in-app toast; alert-center widget to manage/snooze/disable; persist per-user and in localStorage for guests.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:33:27.156Z",
-      "startedAt": "2026-06-03T13:33:27.156Z"
+      "updatedAt": "2026-06-03T13:35:19.658Z",
+      "startedAt": "2026-06-03T13:33:27.156Z",
+      "completedAt": "2026-06-03T13:35:19.658Z",
+      "evidence": "Commit a92c656. Client-side alert engine: price_above/below, pct_change (live stream), rsi_above/below (active chart). Notification API + toast + 10m auto-snooze. ALERTS widget CRUD persisted to settings.alerts (user) and localStorage (guest), added to market+order views. check/test/smoke green (25 tests). Browser-only logic; UI verification deferred to final gate."
     },
     {
       "id": "G007-crypto-assets",
       "title": "Crypto assets",
       "objective": "Add crypto market module (Binance data-api primary, CoinGecko/Coinbase fallback, Coinbase for KRW pairs); route crypto symbols through snapshot/chart/watchlist with correct status labels; add crypto to market universe and a crypto monitor. Real responses only, no fake numbers.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:07:33.225Z"
+      "updatedAt": "2026-06-03T13:36:28.615Z",
+      "startedAt": "2026-06-03T13:36:28.615Z"
     },
     {
       "id": "G008-economic-earnings-calendar",
@@ -115,5 +118,5 @@
     }
   ],
   "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G006-price-indicator-alerts"
+  "activeGoalId": "G007-crypto-assets"
 }

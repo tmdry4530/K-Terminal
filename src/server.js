@@ -5,6 +5,7 @@ import { config, providerFlags } from './config.js';
 import { store } from './store.js';
 import { brokerCapabilities, placeOrder } from './brokers.js';
 import { getChart, getOptions, getSnapshot, MARKET_UNIVERSE } from './marketData.js';
+import { CRYPTO_UNIVERSE } from './cryptoMarket.js';
 import { getNewsWithOptionalTranslation } from './news.js';
 import { answerQuestion } from './ai.js';
 import { getDartFilings, getSecFilings } from './filings.js';
@@ -182,6 +183,7 @@ async function routeApi(req, res, url) {
       user: user ? store.safeUser(user) : null,
       providers: providerFlags(),
       marketUniverse: MARKET_UNIVERSE,
+      cryptoUniverse: CRYPTO_UNIVERSE,
       brokerCapabilities: brokerCapabilities(),
       dataPolicy: {
         noFakeNumbers: true,

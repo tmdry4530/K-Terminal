@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { createCache } from './cache.js';
+import { getCryptoChart, getCryptoQuote, isCryptoSymbol } from './cryptoMarket.js';
 
 export const DATA_STATUS = Object.freeze({
   REALTIME: '실시간',
@@ -382,6 +383,7 @@ export async function getQuote(symbol, userApiKeys = {}) {
 
 async function fetchQuote(symbol, userApiKeys = {}) {
   const normalized = normalizeSymbol(symbol);
+  if (isCryptoSymbol(normalized)) return getCryptoQuote(normalized);
   const order = providerOrder();
   const errors = [];
   const statuses = [];
@@ -414,6 +416,7 @@ async function fetchChart(symbol, range = '1Y', interval = '1D', userApiKeys = {
   const normalized = normalizeSymbol(symbol);
   const safeRange = RANGE_MAP[range] ? range : '1Y';
   const safeInterval = INTERVAL_MAP_YAHOO[interval] ? interval : '1D';
+  if (isCryptoSymbol(normalized)) return getCryptoChart(normalized, safeRange, safeInterval);
   const order = providerOrder();
   const errors = [];
   const statuses = [];
@@ -452,7 +455,7 @@ export async function getOptions(symbol) {
 
 async function fetchOptions(symbol) {
   const normalized = normalizeSymbol(symbol).replace(/\.(KS|KQ)$/u, '');
-  if (!normalized || normalized.startsWith('^')) {
+  if (isCryptoSymbol(normalizeSymbol(symbol)) || !normalized || normalized.startsWith('^')) {
     return { symbol: normalizeSymbol(symbol), options: [], status: DATA_STATUS.NO_DATA, statusMessage: '옵션 체인을 지원하지 않는 심볼입니다.', source: null };
   }
   try {
