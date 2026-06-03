@@ -14,6 +14,7 @@
 - **터미널 UX**: 명령창 자동완성·기록, 키보드 단축키(`?`로 도움말), 차트 크로스헤어와 다중 심볼 정규화 비교.
 - **보안**: CSP·보안 헤더, IP 기반 레이트리밋(인증 엄격), Origin 기반 CSRF 방어.
 - **성능**: TTL + stale-while-revalidate + single-flight 캐시로 동시 동일 요청을 1회 업스트림 호출로 합칩니다.
+- **Crypto Signal + auto-dom 콕핏**: `시그널` 탭에서 검증된 트레이드 시그널 후보 피드와 auto-dom 실행 게이트(모드·kill-switch·부작용 없는 preview)를 봅니다. 터미널은 관측·비상정지만 하고 주문은 개시하지 않습니다. 자세한 연동은 [docs/AUTODOM_INTEGRATION.md](docs/AUTODOM_INTEGRATION.md).
 
 ## 핵심 정책
 

@@ -24,7 +24,10 @@ const state = {
   streamState: 'OFF',
   cmdHistory: JSON.parse(localStorage.getItem('kt.cmdHistory') || '[]'),
   compareSymbols: [],
-  compareSeries: []
+  compareSeries: [],
+  signals: [],
+  activeSignal: null,
+  autodom: null
 };
 
 const DEFAULT_VIEWS = {
@@ -32,6 +35,11 @@ const DEFAULT_VIEWS = {
     left: ['market-pulse', 'watchlist', 'alerts'],
     center: ['chart', 'crypto-monitor', 'news'],
     right: ['ai-assistant', 'order-ticket', 'data-sources']
+  },
+  signals: {
+    left: ['signals', 'market-pulse'],
+    center: ['execution-gate', 'chart'],
+    right: ['ai-assistant', 'watchlist']
   },
   monitor: {
     left: ['watchlist', 'market-pulse'],
@@ -56,7 +64,7 @@ const DEFAULT_VIEWS = {
   order: {
     left: ['watchlist', 'portfolio-summary'],
     center: ['order-ticket', 'order-history'],
-    right: ['alerts', 'data-sources', 'settings']
+    right: ['execution-gate', 'alerts', 'settings']
   },
   ai: {
     left: ['market-pulse', 'watchlist'],
@@ -86,7 +94,9 @@ const WIDGETS = {
   'rates-commodities': { title: 'RATES / FX / COMMODITIES', subtitle: '금리/환율/원자재', render: renderRatesCommodities },
   'monitor-grid': { title: 'MARKET MONITOR', subtitle: '주식/ETF/한국', render: renderMonitorGrid },
   'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor },
-  calendar: { title: 'CALENDAR', subtitle: '실적/경제', render: renderCalendar }
+  calendar: { title: 'CALENDAR', subtitle: '실적/경제', render: renderCalendar },
+  signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
+  'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true }
 };
 
 function loadLayout() {
@@ -475,6 +485,13 @@ function startStream() {
     evaluateAlerts(snap.quotes);     // check price/%-change alerts against the live tick
     setStreamState('LIVE');
   });
+  es.addEventListener('signal', (event) => {
+    let sig;
+    try { sig = JSON.parse(event.data); } catch { return; }
+    state.signals = [sig, ...state.signals.filter((s) => s.signalId !== sig.signalId)].slice(0, 100);
+    if (sig.urgencyScore != null && sig.urgencyScore >= 0.8) showToast(`시그널: ${sig.symbol || ''} ${sig.direction || ''} (urgency ${sig.urgencyScore.toFixed(2)})`, 'warn');
+    if (document.querySelector('[data-widget-id="signals"]')) renderWorkspace();
+  });
   es.onerror = () => setStreamState('RECONNECT'); // EventSource reconnects automatically
 }
 
@@ -649,6 +666,132 @@ function renderCalendar(body) {
       ${rows.map((event) => `<tr><td class="left">${escapeHtml(event.date || '')}</td><td class="left">${escapeHtml(event.name || '')}</td></tr>`).join('') || `<tr><td>${escapeHtml(data.status)}</td><td>${escapeHtml(data.statusMessage || '')}</td></tr>`}
       </tbody></table></div>`;
   }).catch((error) => { $('#cal-econ', body).textContent = `경제 캘린더 오류: ${error.message}`; });
+}
+
+// ---- Crypto Signal feed + auto-dom execution gate (observer/cockpit; no order initiation) ----
+async function loadSignals() {
+  try {
+    const data = await api('/api/signals/recent?limit=50');
+    state.signals = data.signals || [];
+    state.signalsMeta = { configured: data.configured, statusMessage: data.statusMessage };
+  } catch (error) {
+    state.signalsMeta = { configured: false, statusMessage: error.message };
+  }
+}
+
+async function loadAutodom() {
+  const status = await api('/api/autodom/status').catch((e) => ({ online: false, statusMessage: e.message }));
+  const dashboard = await api('/api/autodom/dashboard').catch(() => ({ online: false }));
+  state.autodom = { status, dashboard };
+}
+
+function signalVerifyClass(value) {
+  return value === 'VERIFIED' ? 'ok' : value === 'PROBABLE' ? 'warn' : 'err';
+}
+
+function selectSignal(signalId) {
+  const signal = state.signals.find((s) => s.signalId === signalId);
+  if (!signal) return;
+  state.activeSignal = signal;
+  if (signal.symbol) {
+    const base = String(signal.symbol).replace(/USDT$|USD$|PERP$/i, ''); // BTCUSDT -> BTC-USD (USDT≈USD)
+    if (base) { state.activeSymbol = `${base}-USD`; state.chart = null; loadChart().catch(() => {}); }
+  }
+  renderWorkspace();
+}
+
+function renderSignals(body) {
+  const signals = state.signals || [];
+  if (!signals.length) {
+    body.innerHTML = `<div class="muted">${escapeHtml(state.signalsMeta?.statusMessage || 'auto-dom inbox에서 수신된 시그널이 없습니다.')}</div>`;
+    if (!state.signalsLoaded) { state.signalsLoaded = true; loadSignals().then(renderWorkspace).catch(() => {}); }
+    return;
+  }
+  body.innerHTML = `
+    <div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Event</th><th>Verify</th><th>Conf</th><th>Urg</th><th>TTL</th></tr></thead><tbody>
+      ${signals.map((s) => `<tr class="signal-row ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}">
+        <td class="left">${escapeHtml(String(s.receivedAt || '').slice(11, 19))}</td>
+        <td class="left">${escapeHtml(s.symbol || '')}</td>
+        <td class="${s.direction === 'LONG' ? 'up' : s.direction === 'SHORT' ? 'down' : 'flat'}">${s.direction === 'LONG' ? '▲ LONG' : s.direction === 'SHORT' ? '▼ SHORT' : escapeHtml(s.direction || '')}</td>
+        <td class="left">${escapeHtml((s.eventType || '').replace(/_/g, ' '))}</td>
+        <td><span class="badge ${signalVerifyClass(s.verificationState)}">${escapeHtml(s.verificationState || '?')}${s.rumor ? ' · rumor' : ''}</span></td>
+        <td>${s.confidenceScore != null ? s.confidenceScore.toFixed(2) : '-'}</td>
+        <td>${s.urgencyScore != null ? s.urgencyScore.toFixed(2) : '-'}</td>
+        <td>${s.ttlSec != null ? s.ttlSec + 's' : '-'}</td>
+      </tr>`).join('')}
+    </tbody></table></div>
+    <div class="muted" style="margin-top:6px">행 클릭 → 차트 로드 + 게이트 PREVIEW. 주문 실행은 auto-dom이 담당하며 터미널은 개시하지 않습니다.</div>`;
+  $$('.signal-row', body).forEach((row) => row.addEventListener('click', () => selectSignal(row.dataset.signalId)));
+}
+
+function decisionBadge(decision) {
+  const cls = decision === 'approved' ? 'ok' : decision === 'rejected' ? 'err' : 'warn';
+  const text = decision === 'approved' ? '승인' : decision === 'rejected' ? '거절' : decision;
+  return `<span class="badge ${cls}">${escapeHtml(text)}</span>`;
+}
+
+function renderExecutionGate(body) {
+  if (!state.autodom) {
+    body.innerHTML = '<div class="muted">auto-dom 상태 로딩 중...</div>';
+    loadAutodom().then(renderWorkspace).catch(() => {});
+    return;
+  }
+  const status = state.autodom.status || {};
+  const st = status.status || {};
+  const health = status.health || {};
+  const snap = state.autodom.dashboard?.snapshot || {};
+  const runtime = snap.runtime || {};
+  const caps = snap.risk_caps || {};
+  const env = snap.env_readiness || {};
+  const online = status.online;
+  const mode = st.mode || health.mode || runtime.mode || '?';
+  const modeClass = !online ? 'err' : mode === 'live' ? 'err' : (mode === 'ingest_only' || mode === 'paper') ? 'ok' : 'warn';
+  const killActive = st.kill_switch_active ?? runtime.kill_switch_active;
+  const dailyStop = st.daily_stop_active ?? runtime.daily_stop_active;
+  const liveEnabled = st.live_enabled ?? runtime.live_enabled;
+  body.innerHTML = `
+    <div class="gate-mode ${modeClass}">${online ? `MODE · ${escapeHtml(String(mode).toUpperCase())}` : '브릿지 오프라인'}</div>
+    ${online ? `
+    <div class="grid2" style="margin-top:6px">
+      <div class="metric"><div class="k">Kill-switch</div><div class="v ${killActive ? 'down' : 'up'}">${killActive ? 'ACTIVE' : 'off'}</div></div>
+      <div class="metric"><div class="k">Daily-stop</div><div class="v ${dailyStop ? 'down' : 'up'}">${dailyStop ? 'LOCKED' : 'normal'}</div></div>
+      <div class="metric"><div class="k">Live enabled</div><div class="v ${liveEnabled ? 'down' : 'up'}">${liveEnabled ? 'YES' : 'no'}</div></div>
+      <div class="metric"><div class="k">Acc/Rej/Dup</div><div class="v">${st.accepted_count ?? 0}/${st.rejected_count ?? 0}/${st.duplicate_count ?? 0}</div></div>
+    </div>
+    <div class="muted" style="margin-top:6px">Binance: ${env.BINANCE_API_KEY ? '키✓' : '키✗'} / ${escapeHtml(env.BINANCE_FUTURES_ENV || '?')} · caps ${escapeHtml(JSON.stringify(caps.allowed_symbols || caps.allowedSymbols || '—'))} margin ${escapeHtml(String(caps.max_margin_pct ?? caps.margin_cap ?? '—'))}</div>
+    <div class="row gap" style="margin-top:8px"><button id="gate-pause">PAUSE</button><button id="gate-resume">RESUME</button><span id="gate-action" class="muted"></span></div>
+    <div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px"><strong>선택 시그널 게이트 PREVIEW</strong></div>
+    ${state.activeSignal ? `
+      <div class="muted" style="margin-top:4px">${escapeHtml(state.activeSignal.symbol || '')} ${escapeHtml(state.activeSignal.direction || '')} · ${escapeHtml((state.activeSignal.eventType || '').replace(/_/g, ' '))}</div>
+      <button id="gate-preview" style="margin-top:6px">PREVIEW (부작용 없음)</button>
+      <div id="gate-preview-out" style="margin-top:6px"></div>`
+      : '<div class="muted" style="margin-top:4px">SIGNALS 패널에서 시그널을 선택하세요.</div>'}
+    ` : `<div class="muted" style="margin-top:6px">${escapeHtml(status.statusMessage || 'auto-dom 브릿지 실행 확인 (기본 127.0.0.1:8765, ingest_only).')}</div>`}`;
+  if (!online) return;
+  $('#gate-pause', body)?.addEventListener('click', async () => {
+    const result = await api('/api/autodom/agent/actions', { method: 'POST', body: { action: 'pause_trading', reason: 'operator pause from terminal', requested_by: 'k-terminal' } }).catch((e) => ({ data: { error: e.message } }));
+    $('#gate-action', body).textContent = JSON.stringify(result.data ?? result);
+    state.autodom = null; renderWorkspace();
+  });
+  $('#gate-resume', body)?.addEventListener('click', async () => {
+    if (!window.confirm('거래 재개(kill-switch 해제)합니다. 계속할까요?')) return;
+    const result = await api('/api/autodom/agent/actions', { method: 'POST', body: { action: 'resume_trading', operator_approved: true, reason: 'operator resume from terminal' } }).catch((e) => ({ data: { error: e.message } }));
+    $('#gate-action', body).textContent = JSON.stringify(result.data ?? result);
+    state.autodom = null; renderWorkspace();
+  });
+  $('#gate-preview', body)?.addEventListener('click', async () => {
+    const out = $('#gate-preview-out', body);
+    out.textContent = 'preview 중...';
+    try {
+      const result = await api('/api/signals/preview', { method: 'POST', body: { signal: state.activeSignal.signal } });
+      const data = result.data?.data || result.data || {};
+      const decision = data.risk_decision || data.decision || (data.approved === true ? 'approved' : data.approved === false ? 'rejected' : (result.ok ? 'preview' : '오류'));
+      const reasons = data.reasons || data.rejection_reasons || data.risk?.reasons || [];
+      out.innerHTML = `${decisionBadge(decision)} <span class="muted">${escapeHtml((reasons || []).join(', '))}</span><pre class="muted" style="white-space:pre-wrap; max-height:160px; overflow:auto; margin-top:4px">${escapeHtml(JSON.stringify(data, null, 2).slice(0, 1500))}</pre>`;
+    } catch (error) {
+      out.innerHTML = `${decisionBadge('오류')} ${escapeHtml(error.message)}`;
+    }
+  });
 }
 
 function renderChartWidget(body, widgetId, options = {}) {

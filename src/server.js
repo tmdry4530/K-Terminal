@@ -13,11 +13,12 @@ import { getEarningsCalendar, getEconomicCalendar } from './calendar.js';
 import { enrichPortfolio } from './portfolio.js';
 import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
 import { createQuoteStream } from './stream.js';
+import { agentAction, bridgeDashboard, bridgeStatus, getWatchTarget, previewSignal, recentSignals, setWatchTarget } from './autodom.js';
 
 // ~120 req/min sustained for general API; tight ~6/min on auth to blunt brute force.
 const apiLimiter = createLimiter({ capacity: 120, refillPerSec: 2 });
 const authLimiter = createLimiter({ capacity: 6, refillPerSec: 6 / 60 });
-const quoteStream = createQuoteStream();
+const quoteStream = createQuoteStream({ fetchSignals: () => recentSignals(30) });
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -288,6 +289,51 @@ async function routeApi(req, res, url) {
   if (method === 'GET' && pathname === '/api/calendar/economic') {
     const result = await getEconomicCalendar(userApiKeys);
     sendJson(res, 200, result);
+    return;
+  }
+
+  // --- auto-dom trading bridge (observer/cockpit; no order initiation from the terminal) ---
+  if (method === 'GET' && pathname === '/api/autodom/status') {
+    sendJson(res, 200, await bridgeStatus());
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/autodom/dashboard') {
+    sendJson(res, 200, await bridgeDashboard());
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/signals/recent') {
+    sendJson(res, 200, await recentSignals(Number(url.searchParams.get('limit')) || 50));
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/autodom/watch-target') {
+    sendJson(res, 200, await getWatchTarget());
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/signals/preview') {
+    const authUser = await requireUser(req, res);
+    if (!authUser) return;
+    const body = await readBody(req);
+    sendJson(res, 200, await previewSignal(body.signal || body));
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/autodom/watch-target') {
+    const authUser = await requireUser(req, res);
+    if (!authUser) return;
+    const body = await readBody(req);
+    sendJson(res, 200, await setWatchTarget(body));
+    return;
+  }
+
+  if (method === 'POST' && pathname === '/api/autodom/agent/actions') {
+    const authUser = await requireUser(req, res);
+    if (!authUser) return;
+    const body = await readBody(req);
+    sendJson(res, 200, await agentAction(body));
     return;
   }
 

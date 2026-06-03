@@ -10,10 +10,12 @@ const MAX_PER_IP = 5;
 // Multiplexed Server-Sent Events quote stream. A single shared poller fetches the union of
 // the market universe and every connected client's requested symbols (via the cached
 // getSnapshot, so it collapses to one upstream fetch) and broadcasts to all subscribers.
-export function createQuoteStream({ intervalMs = DEFAULT_INTERVAL_MS, fetchSnapshot = getSnapshot } = {}) {
+export function createQuoteStream({ intervalMs = DEFAULT_INTERVAL_MS, fetchSnapshot = getSnapshot, fetchSignals = null } = {}) {
   const clients = new Set();
   let poller = null;
   let eventId = 0;
+  const seenSignalIds = new Set();
+  let signalsSeeded = false;
 
   function unionSymbols() {
     const set = new Set(CRYPTO_UNIVERSE.map((item) => item.symbol));
@@ -39,11 +41,35 @@ export function createQuoteStream({ intervalMs = DEFAULT_INTERVAL_MS, fetchSnaps
     broadcast('snapshot', snapshot);
   }
 
+  // Poll the auto-dom inbox and push only NEW signals (the initial backlog is loaded by the
+  // client via /api/signals/recent, so we seed-without-broadcast on the first poll).
+  async function pollSignalsOnce() {
+    if (!fetchSignals || !clients.size) return;
+    let result;
+    try { result = await fetchSignals(); } catch { return; }
+    const signals = result?.signals || [];
+    if (!signalsSeeded) {
+      for (const item of signals) if (item.signalId) seenSignalIds.add(item.signalId);
+      signalsSeeded = true;
+      return;
+    }
+    const fresh = signals.filter((item) => item.signalId && !seenSignalIds.has(item.signalId)).reverse();
+    for (const item of fresh) {
+      seenSignalIds.add(item.signalId);
+      broadcast('signal', item);
+    }
+    if (seenSignalIds.size > 2000) {
+      seenSignalIds.clear();
+      for (const item of signals) if (item.signalId) seenSignalIds.add(item.signalId);
+    }
+  }
+
   function ensurePoller() {
     if (poller || !clients.size) return;
-    poller = setInterval(() => { pollOnce().catch(() => {}); }, intervalMs);
+    poller = setInterval(() => { pollOnce().catch(() => {}); pollSignalsOnce().catch(() => {}); }, intervalMs);
     if (poller.unref) poller.unref();
     pollOnce().catch(() => {}); // push an immediate first frame on first connect
+    pollSignalsOnce().catch(() => {});
   }
 
   function removeClient(client) {

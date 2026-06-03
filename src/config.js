@@ -52,7 +52,12 @@ export const config = Object.freeze({
   kisAppSecret: process.env.KIS_APP_SECRET || '',
   kisAccountNo: process.env.KIS_ACCOUNT_NO || '',
   kisProductCode: process.env.KIS_PRODUCT_CODE || '',
-  kisPaper: bool(process.env.KIS_PAPER, true)
+  kisPaper: bool(process.env.KIS_PAPER, true),
+  // auto-dom local trading bridge (co-located on the same machine). The terminal is an
+  // observer/cockpit only — it never holds Binance keys and never enables live mode.
+  autoDomUrl: process.env.AUTO_DOM_URL || 'http://127.0.0.1:8765',
+  autoDomBridgeToken: process.env.AUTO_DOM_BRIDGE_TOKEN || '',
+  autoDomInboxPath: process.env.AUTO_DOM_INBOX_PATH || ''
 });
 
 // In production, refuse to boot with a weak/known SECRET_KEY — it encrypts every stored API
