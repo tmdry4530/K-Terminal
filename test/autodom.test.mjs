@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { parseInboxLine, recentSignals } from '../src/autodom.js';
+import { normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
 
 test('parseInboxLine flattens the inbox envelope payload', () => {
   const line = JSON.stringify({
@@ -46,4 +46,34 @@ test('recentSignals reports not-configured when no inbox path is set', async () 
   const result = await recentSignals(10, '');
   assert.equal(result.configured, false);
   assert.deepEqual(result.signals, []);
+});
+
+test('normalizeExecutionRecord parses a live_audit record', () => {
+  const r = normalizeExecutionRecord({ time: '2026-06-04T01:00:00Z', signal_id: 'sig_1', symbol: 'BTCUSDT', decision: 'sent', reason: [], order_preview: { side: 'SELL', quantity: '0.001' } }, 'live');
+  assert.equal(r.source, 'live');
+  assert.equal(r.symbol, 'BTCUSDT');
+  assert.equal(r.decision, 'sent');
+  assert.equal(r.signalId, 'sig_1');
+});
+
+test('normalizeExecutionRecord parses a runtime submit_decision carrying the signal evidence', () => {
+  const r = normalizeExecutionRecord({ time: '2026-06-04T01:00:00Z', mode: 'paper', signal: { signal_id: 's2', symbol: 'ETHUSDT', direction: 'LONG', evidence_summary: [{ source_type: 'official', source_label: 'X', summary: 'y' }] }, outcome: 'ingested', response: { data: { risk_decision: 'approved', reasons: [] } } }, 'runtime');
+  assert.equal(r.source, 'paper');
+  assert.equal(r.direction, 'LONG');
+  assert.equal(r.decision, 'approved');
+  assert.equal(r.signal.evidence_summary.length, 1);
+});
+
+test('recentExecutions reads the live_audit JSONL tail newest-first', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kt-exec-'));
+  const file = path.join(dir, 'live_audit.jsonl');
+  await fs.writeFile(file, `${[
+    JSON.stringify({ time: '2026-06-04T01:00:00Z', signal_id: 'a', symbol: 'BTCUSDT', decision: 'sent', reason: [] }),
+    JSON.stringify({ time: '2026-06-04T01:05:00Z', signal_id: 'b', symbol: 'ETHUSDT', decision: 'rejected', reason: ['SLIPPAGE_TOO_HIGH'] })
+  ].join('\n')}\n`);
+  const result = await recentExecutions(10, { liveAuditPath: file, auditRoot: '' });
+  assert.equal(result.configured, true);
+  assert.equal(result.executions.length, 2);
+  assert.equal(result.executions[0].signalId, 'b'); // newest first
+  assert.equal(result.executions[0].decision, 'rejected');
 });

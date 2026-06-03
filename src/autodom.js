@@ -132,3 +132,81 @@ export async function recentSignals(limit = 50, inboxPath = config.autoDomInboxP
     return { configured: true, signals: [], statusMessage: error.message, source: absolute };
   }
 }
+
+function resolvePath(p) {
+  return path.isAbsolute(p) ? p : path.resolve(config.rootDir, p);
+}
+
+// live_audit.jsonl line: { time, signal_id, symbol, decision, reason, order_preview, exchange_response_redacted }
+export function normalizeExecutionRecord(record, source = 'live') {
+  if (!record || typeof record !== 'object') return null;
+  if (source === 'live') {
+    return {
+      time: record.time || null,
+      source: 'live',
+      signalId: record.signal_id || null,
+      symbol: record.symbol || null,
+      direction: null,
+      decision: record.decision || null, // 'sent' | 'rejected'
+      reasons: Array.isArray(record.reason) ? record.reason : (record.reason ? [record.reason] : []),
+      orderPreview: record.order_preview || null,
+      signal: null
+    };
+  }
+  // runtime audit submit_decision: { time, mode, signal, outcome, response }
+  const signal = record.signal && typeof record.signal === 'object' ? record.signal : null;
+  const response = record.response && typeof record.response === 'object' ? record.response : {};
+  const data = response.data || response;
+  return {
+    time: record.time || null,
+    source: record.mode || 'audit',
+    signalId: signal?.signal_id || null,
+    symbol: signal?.symbol || null,
+    direction: signal?.direction || null,
+    decision: data.risk_decision || data.decision || record.outcome || null,
+    reasons: data.reasons || data.rejection_reasons || [],
+    orderPreview: data.execution_result || data.paper_order || data.order || null,
+    signal
+  };
+}
+
+async function readLiveAudit(limit, liveAuditPath) {
+  if (!liveAuditPath) return [];
+  try {
+    const raw = await fs.readFile(resolvePath(liveAuditPath), 'utf8');
+    return raw.split(/\r?\n/).filter(Boolean).slice(-limit)
+      .map((line) => { try { return normalizeExecutionRecord(JSON.parse(line), 'live'); } catch { return null; } })
+      .filter(Boolean);
+  } catch { return []; }
+}
+
+async function readRuntimeAudit(limit, auditRoot) {
+  if (!auditRoot) return [];
+  const root = resolvePath(auditRoot);
+  let dirents;
+  try { dirents = await fs.readdir(root, { withFileTypes: true }); } catch { return []; }
+  const stats = await Promise.all(dirents.filter((d) => d.isDirectory()).map(async (d) => {
+    try { return { name: d.name, mtime: (await fs.stat(path.join(root, d.name))).mtimeMs }; } catch { return null; }
+  }));
+  const recent = stats.filter(Boolean).sort((a, b) => b.mtime - a.mtime).slice(0, limit);
+  const records = await Promise.all(recent.map(async (d) => {
+    try { return normalizeExecutionRecord(JSON.parse(await fs.readFile(path.join(root, d.name, 'submit_decision.json'), 'utf8')), 'runtime'); } catch { return null; }
+  }));
+  return records.filter(Boolean);
+}
+
+// Entered positions / execution decisions with their originating signal (for rationale).
+export async function recentExecutions(limit = 40, { liveAuditPath = config.autoDomLiveAuditPath, auditRoot = config.autoDomAuditRoot } = {}) {
+  const [live, runtime] = await Promise.all([readLiveAudit(limit, liveAuditPath), readRuntimeAudit(limit, auditRoot)]);
+  const seen = new Set();
+  const executions = [...live, ...runtime]
+    .sort((a, b) => String(b.time || '').localeCompare(String(a.time || '')))
+    .filter((item) => {
+      const key = `${item.signalId || ''}:${item.time || ''}:${item.source}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+  return { configured: Boolean(liveAuditPath || auditRoot), executions };
+}

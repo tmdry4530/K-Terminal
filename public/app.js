@@ -37,7 +37,7 @@ const DEFAULT_VIEWS = {
     right: ['ai-assistant', 'order-ticket', 'data-sources']
   },
   signals: {
-    left: ['signals', 'market-pulse'],
+    left: ['signals', 'positions'],
     center: ['execution-gate', 'chart'],
     right: ['ai-assistant', 'watchlist']
   },
@@ -96,7 +96,8 @@ const WIDGETS = {
   'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor },
   calendar: { title: 'CALENDAR', subtitle: '실적/경제', render: renderCalendar },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
-  'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true }
+  'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true },
+  positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
 };
 
 function loadLayout() {
@@ -709,9 +710,9 @@ function renderSignals(body) {
   }
   body.innerHTML = `
     <div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Event</th><th>Verify</th><th>Conf</th><th>Urg</th><th>TTL</th></tr></thead><tbody>
-      ${signals.map((s) => `<tr class="signal-row ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}">
+      ${signals.map((s) => `<tr class="signal-row ${isImportantSignal(s) ? 'signal-important' : ''} ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}">
         <td class="left">${escapeHtml(String(s.receivedAt || '').slice(11, 19))}</td>
-        <td class="left">${escapeHtml(s.symbol || '')}</td>
+        <td class="left">${isImportantSignal(s) ? '★ ' : ''}${escapeHtml(s.symbol || '')}</td>
         <td class="${s.direction === 'LONG' ? 'up' : s.direction === 'SHORT' ? 'down' : 'flat'}">${s.direction === 'LONG' ? '▲ LONG' : s.direction === 'SHORT' ? '▼ SHORT' : escapeHtml(s.direction || '')}</td>
         <td class="left">${escapeHtml((s.eventType || '').replace(/_/g, ' '))}</td>
         <td><span class="badge ${signalVerifyClass(s.verificationState)}">${escapeHtml(s.verificationState || '?')}${s.rumor ? ' · rumor' : ''}</span></td>
@@ -762,10 +763,12 @@ function renderExecutionGate(body) {
     <div class="row gap" style="margin-top:8px"><button id="gate-pause">PAUSE</button><button id="gate-resume">RESUME</button><span id="gate-action" class="muted"></span></div>
     <div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px"><strong>선택 시그널 게이트 PREVIEW</strong></div>
     ${state.activeSignal ? `
-      <div class="muted" style="margin-top:4px">${escapeHtml(state.activeSignal.symbol || '')} ${escapeHtml(state.activeSignal.direction || '')} · ${escapeHtml((state.activeSignal.eventType || '').replace(/_/g, ' '))}</div>
+      <div class="muted" style="margin-top:4px">${escapeHtml(state.activeSignal.symbol || '')} ${escapeHtml(state.activeSignal.direction || '')} · ${escapeHtml((state.activeSignal.eventType || '').replace(/_/g, ' '))} · conf ${state.activeSignal.confidenceScore ?? '-'} urg ${state.activeSignal.urgencyScore ?? '-'}</div>
+      <div style="margin-top:6px"><strong>근거 (수집 뉴스/출처)</strong></div>
+      ${evidenceHtml(state.activeSignal.signal)}
       <button id="gate-preview" style="margin-top:6px">PREVIEW (부작용 없음)</button>
       <div id="gate-preview-out" style="margin-top:6px"></div>`
-      : '<div class="muted" style="margin-top:4px">SIGNALS 패널에서 시그널을 선택하세요.</div>'}
+      : '<div class="muted" style="margin-top:4px">SIGNALS 패널에서 시그널을 선택하면 근거가 표시됩니다.</div>'}
     ` : `<div class="muted" style="margin-top:6px">${escapeHtml(status.statusMessage || 'auto-dom 브릿지 실행 확인 (기본 127.0.0.1:8765, ingest_only).')}</div>`}`;
   if (!online) return;
   $('#gate-pause', body)?.addEventListener('click', async () => {
@@ -792,6 +795,54 @@ function renderExecutionGate(body) {
       out.innerHTML = `${decisionBadge('오류')} ${escapeHtml(error.message)}`;
     }
   });
+}
+
+const CRITICAL_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'exchange_delisting_or_systemic_exchange_failure', 'war_level_global_macro_shock', 'major_regulatory_action']);
+
+function isImportantSignal(s) {
+  return (s.urgencyScore != null && s.urgencyScore >= 0.7) || (s.confidenceScore != null && s.confidenceScore >= 0.85) || s.verificationState === 'VERIFIED' || CRITICAL_EVENTS.has(s.eventType);
+}
+
+// Renders a signal's collected-news evidence + risk notes — the rationale behind it.
+function evidenceHtml(signal) {
+  if (!signal) return '<div class="muted">근거 데이터 없음 (시그널 미연결)</div>';
+  const evidence = signal.evidence_summary || [];
+  const notes = signal.risk_notes || [];
+  return `<div class="evidence">
+    ${evidence.map((e) => `<div class="evidence-item">
+      <div><span class="badge">${escapeHtml(e.source_type || '')}</span> <strong>${escapeHtml(e.source_label || '')}</strong></div>
+      <div class="muted">${escapeHtml(e.summary || '')}</div>
+      ${e.url ? `<a href="${escapeHtml(e.url)}" target="_blank" rel="noreferrer">출처 →</a>` : ''}
+    </div>`).join('') || '<div class="muted">근거 항목 없음</div>'}
+    ${notes.length ? `<div class="muted" style="margin-top:4px">⚠ risk: ${escapeHtml(notes.join(', '))}</div>` : ''}
+  </div>`;
+}
+
+function renderPositions(body) {
+  body.innerHTML = `<div id="positions-body">${skeletonBlock(4)}</div>`;
+  api('/api/signals/executions?limit=40').then((data) => {
+    const host = $('#positions-body', body);
+    if (!data.configured) { host.innerHTML = '<div class="muted">AUTO_DOM_LIVE_AUDIT_PATH / AUTO_DOM_AUDIT_ROOT 미설정</div>'; return; }
+    const executions = data.executions || [];
+    if (!executions.length) { host.innerHTML = '<div class="muted">체결/실행 기록 없음</div>'; return; }
+    host.innerHTML = executions.map((e, index) => {
+      const signal = e.signal || state.signals.find((s) => s.signalId === e.signalId)?.signal || null;
+      const decClass = (e.decision === 'sent' || e.decision === 'approved') ? 'up' : e.decision === 'rejected' ? 'down' : 'flat';
+      return `<div class="position-item">
+        <div class="row" style="justify-content:space-between">
+          <span><strong>${escapeHtml(e.symbol || '?')}</strong> ${e.direction ? `<span class="${e.direction === 'LONG' ? 'up' : 'down'}">${escapeHtml(e.direction)}</span>` : ''}</span>
+          <span class="${decClass}">${escapeHtml(e.decision || '?')} <span class="badge">${escapeHtml(e.source)}</span></span>
+        </div>
+        <div class="muted">${escapeHtml(String(e.time || '').replace('T', ' ').slice(0, 19))}${e.reasons?.length ? ' · ' + escapeHtml(e.reasons.join(', ')) : ''}</div>
+        <button class="pos-evidence-toggle" data-index="${index}">근거 보기 ▾</button>
+        <div class="pos-evidence" data-index="${index}" style="display:none; margin-top:4px">${evidenceHtml(signal)}</div>
+      </div>`;
+    }).join('');
+    $$('.pos-evidence-toggle', body).forEach((button) => button.addEventListener('click', () => {
+      const panel = $$('.pos-evidence', body).find((el) => el.dataset.index === button.dataset.index);
+      if (panel) { const shown = panel.style.display !== 'none'; panel.style.display = shown ? 'none' : ''; button.textContent = shown ? '근거 보기 ▾' : '근거 숨기기 ▴'; }
+    }));
+  }).catch((error) => { $('#positions-body', body).textContent = `데이터 없음: ${error.message}`; });
 }
 
 function renderChartWidget(body, widgetId, options = {}) {

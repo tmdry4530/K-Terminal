@@ -13,7 +13,7 @@ import { getEarningsCalendar, getEconomicCalendar } from './calendar.js';
 import { enrichPortfolio } from './portfolio.js';
 import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
 import { createQuoteStream } from './stream.js';
-import { agentAction, bridgeDashboard, bridgeStatus, getWatchTarget, previewSignal, recentSignals, setWatchTarget } from './autodom.js';
+import { agentAction, bridgeDashboard, bridgeStatus, getWatchTarget, previewSignal, recentExecutions, recentSignals, setWatchTarget } from './autodom.js';
 
 // ~120 req/min sustained for general API; tight ~6/min on auth to blunt brute force.
 const apiLimiter = createLimiter({ capacity: 120, refillPerSec: 2 });
@@ -305,6 +305,11 @@ async function routeApi(req, res, url) {
 
   if (method === 'GET' && pathname === '/api/signals/recent') {
     sendJson(res, 200, await recentSignals(Number(url.searchParams.get('limit')) || 50));
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/api/signals/executions') {
+    sendJson(res, 200, await recentExecutions(Number(url.searchParams.get('limit')) || 40));
     return;
   }
 

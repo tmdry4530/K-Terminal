@@ -57,7 +57,9 @@ export const config = Object.freeze({
   // observer/cockpit only — it never holds Binance keys and never enables live mode.
   autoDomUrl: process.env.AUTO_DOM_URL || 'http://127.0.0.1:8765',
   autoDomBridgeToken: process.env.AUTO_DOM_BRIDGE_TOKEN || '',
-  autoDomInboxPath: process.env.AUTO_DOM_INBOX_PATH || ''
+  autoDomInboxPath: process.env.AUTO_DOM_INBOX_PATH || '',
+  autoDomLiveAuditPath: process.env.AUTO_DOM_LIVE_AUDIT_PATH || '',
+  autoDomAuditRoot: process.env.AUTO_DOM_AUDIT_ROOT || ''
 });
 
 // In production, refuse to boot with a weak/known SECRET_KEY — it encrypts every stored API
