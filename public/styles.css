@@ -229,18 +229,40 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); outline
 .skeleton { color: transparent !important; background: linear-gradient(90deg, #0c1318 25%, #16242e 50%, #0c1318 75%); background-size: 800px 100%; animation: shimmer 1.3s linear infinite; border-radius: 4px; min-height: 14px; }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
 
+/* ---------- Tablet / mobile: stack all three panels into one scrollable column ---------- */
 @media (max-width: 1100px) {
-  :root { --left-width: 240px; --right-width: 260px; }
-  .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
+  #app-shell { height: auto; min-height: 100vh; overflow: visible; grid-template-rows: auto auto auto auto auto; }
+  html, body { overflow: auto; height: auto; }
+  /* topbar wraps instead of a fixed grid; command box grows, menu/clock/login drop */
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; height: auto; padding: 6px 10px; }
+  .command-box { flex: 1 1 200px; }
   .global-menu, .clock, .login-button { display: none; }
-  .workspace { grid-template-columns: 1fr; overflow: auto; }
+  /* every panel is visible and full-width; nothing is hidden on mobile */
+  .workspace { display: flex; flex-direction: column; overflow: visible; }
   .splitter { display: none; }
-  .panel { overflow: visible; }
-  .left-panel, .right-panel { display: none; }
-  #app-shell { overflow: auto; height: auto; min-height: 100vh; }
-  html, body { overflow: auto; }
-  /* On mobile, widgets stack at content height (no flex-fill) and the page scrolls. */
-  .widget { flex: 0 0 auto; min-height: 0; }
-  .widget-body { overflow: visible; }
+  .panel { width: 100%; min-width: 0; overflow: visible; }
+  .left-panel, .center-panel, .right-panel { display: flex; }
+  /* widgets stack at content height; wide tables scroll horizontally inside the widget */
+  .widget { flex: 0 0 auto; min-height: 0; min-width: 0; }
+  .widget-body { overflow: auto; }
   .scroll { max-height: 70vh; }
+  .chart-wrap { min-height: 360px; }
+}
+
+/* ---------- Phone: bigger tap targets, single-ish forms, fitted modals ---------- */
+@media (max-width: 640px) {
+  .subtabs { gap: 4px; padding: 6px; }
+  .subtabs button { padding: 9px 13px; font-size: 12px; }
+  .command-box { height: 32px; }
+  .command-box span { display: none; } /* drop the "LLM <GO>" label to free width */
+  .ai-button { padding: 7px 10px; }
+  button { padding: 7px 10px; } /* touch-friendly; dense widget actions stay smaller below */
+  .widget-actions button { padding: 4px 8px; font-size: 10px; }
+  .form-grid, .form-grid.compact { grid-template-columns: 1fr 1fr; }
+  .chart-wrap { min-height: 300px; }
+  .modal-card { min-width: 0; width: 94vw; }
+  .modal-card.wide { width: 96vw; height: 90vh; }
+  .index-strip { grid-auto-columns: minmax(118px, 1fr); }
+  #toast-host { left: 8px; right: 8px; }
+  .toast { max-width: none; }
 }
