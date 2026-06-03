@@ -55,10 +55,16 @@ export const config = Object.freeze({
   kisPaper: bool(process.env.KIS_PAPER, true)
 });
 
-// In production, refuse to boot with the public dev default — it would encrypt every stored
-// API key under a known key. Session tokens are SHA-256 hashed and don't depend on this.
-if (config.nodeEnv === 'production' && (!process.env.SECRET_KEY || config.secretKey.startsWith('development-only-secret'))) {
-  throw new Error('SECRET_KEY must be set to a strong random value when NODE_ENV=production.');
+// In production, refuse to boot with a weak/known SECRET_KEY — it encrypts every stored API
+// key, so a known value makes them trivially decryptable. Rejects the hardcoded dev default,
+// the .env.example placeholder, and anything too short. (Session tokens are SHA-256 hashed
+// and don't depend on this.)
+const weakSecret = !process.env.SECRET_KEY
+  || config.secretKey.startsWith('development-only-secret')
+  || config.secretKey.startsWith('replace-with')
+  || config.secretKey.length < 32;
+if (config.nodeEnv === 'production' && weakSecret) {
+  throw new Error('SECRET_KEY must be a strong (32+ char) random value when NODE_ENV=production.');
 }
 
 export function providerFlags() {
