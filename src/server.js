@@ -129,7 +129,10 @@ async function serveStatic(req, res, pathname) {
     const finalPath = stat.isDirectory() ? path.join(absolute, 'index.html') : absolute;
     const data = await fs.readFile(finalPath);
     const ext = path.extname(finalPath).toLowerCase();
-    res.writeHead(200, { 'content-type': MIME[ext] || 'application/octet-stream', 'cache-control': ext === '.html' ? 'no-store' : 'public, max-age=3600' });
+    // HTML never cached; JS/CSS revalidate (build-less app has no content hashing, so this
+    // avoids stale assets after a deploy); images/fonts may be cached.
+    const cacheControl = ext === '.html' ? 'no-store' : ext === '.js' || ext === '.css' ? 'no-cache' : 'public, max-age=3600';
+    res.writeHead(200, { 'content-type': MIME[ext] || 'application/octet-stream', 'cache-control': cacheControl });
     res.end(data);
   } catch (error) {
     if (error.code === 'ENOENT') {

@@ -511,6 +511,26 @@ function labelFor(symbol) {
   return state.meta?.marketUniverse?.find((item) => item.symbol === symbol)?.label || symbol;
 }
 
+function regimeGauge(avg, regime) {
+  const rad = (deg) => (deg * Math.PI) / 180;
+  const clamped = Math.max(-1, Math.min(1, Number.isFinite(avg) ? avg : 0)); // avg is a percent; ±1% = full deflection
+  const theta = 90 - clamped * 90; // 180°=left/down, 90°=top/neutral, 0°=right/up
+  const cx = 100;
+  const cy = 100;
+  const r = 78;
+  const nx = (cx + r * Math.cos(rad(theta))).toFixed(1);
+  const ny = (cy - r * Math.sin(rad(theta))).toFixed(1);
+  const color = !Number.isFinite(avg) ? '#7c8b94' : avg > 0.05 ? '#28d17c' : avg < -0.05 ? '#f05b65' : '#f4b84a';
+  return `<svg viewBox="0 0 200 116" class="gauge" role="img" aria-label="시장 레짐 게이지: ${escapeHtml(regime)}">
+    <path d="M20,100 A80,80 0 0 1 100,20" fill="none" stroke="rgba(240,91,101,.32)" stroke-width="10" stroke-linecap="round"/>
+    <path d="M100,20 A80,80 0 0 1 180,100" fill="none" stroke="rgba(40,209,124,.32)" stroke-width="10" stroke-linecap="round"/>
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="${color}" stroke-width="3"/>
+    <circle cx="${cx}" cy="${cy}" r="5" fill="${color}"/>
+    <text x="100" y="84" text-anchor="middle" fill="${color}" font-size="18" font-weight="800">${escapeHtml(regime)}</text>
+    <text x="100" y="103" text-anchor="middle" fill="#7c8b94" font-size="11">평균 ${pct(avg)}</text>
+  </svg>`;
+}
+
 function renderMarketPulse(body) {
   const quotes = state.snapshot?.quotes || [];
   const valid = quotes.filter((q) => Number.isFinite(Number(q.changePercent)));
@@ -520,9 +540,8 @@ function renderMarketPulse(body) {
   const noData = quotes.filter((q) => !Number.isFinite(Number(q.price))).length;
   const risk = avg === null ? '데이터 없음' : avg > 0.25 ? 'RISK-ON' : avg < -0.25 ? 'RISK-OFF' : 'NEUTRAL';
   body.innerHTML = `
-    <div class="grid2">
-      <div class="metric"><div class="k">Market Regime</div><div class="v ${avg > 0 ? 'up' : avg < 0 ? 'down' : 'flat'}">${risk}</div></div>
-      <div class="metric"><div class="k">Average Move</div><div class="v ${clsChange(avg)}">${pct(avg)}</div></div>
+    ${regimeGauge(avg, risk)}
+    <div class="grid2" style="margin-top:4px">
       <div class="metric"><div class="k">Adv / Dec</div><div class="v">${advancers} / ${decliners}</div></div>
       <div class="metric"><div class="k">No Data</div><div class="v ${noData ? 'down' : 'up'}">${noData}</div></div>
     </div>
