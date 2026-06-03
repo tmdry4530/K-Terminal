@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-03T13:07:33.225Z",
-  "updatedAt": "2026-06-03T13:52:35.188Z",
+  "updatedAt": "2026-06-03T14:07:06.480Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -119,13 +119,14 @@
       "id": "G010-test-coverage-ci-final-gate",
       "title": "Test coverage, CI & final gate",
       "objective": "Broaden node:test coverage (marketData parsing, news sentiment, filings mapping, fx, cache, rate-limiter, brokers live-block safety); add GitHub Actions CI (check+test+smoke on Node 20/22); refresh docs/README. Run mandatory final gate: ai-slop-cleaner, verification, code-review; checkpoint complete only when all clean.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-03T13:07:33.225Z",
-      "updatedAt": "2026-06-03T13:52:35.188Z",
-      "startedAt": "2026-06-03T13:52:35.188Z"
+      "updatedAt": "2026-06-03T14:07:06.480Z",
+      "startedAt": "2026-06-03T13:52:35.188Z",
+      "evidence": "Commit 8aff25e. 41 tests; CI (Node 20/22); README/.gitattributes; finiteOrNull null-safety. Final gate: code-reviewer + security-reviewer both APPROVE (0 Critical/High), all Medium findings fixed and re-verified. check/test/smoke green; browser-verified.",
+      "completedAt": "2026-06-03T14:07:06.480Z"
     }
   ],
-  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate",
-  "activeGoalId": "G010-test-coverage-ci-final-gate"
+  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001-correctness-foundation Correctness & foundation; G002-security-hardening Security hardening; G003-caching-resilience-layer Caching & resilience layer; G004-multi-currency-fx-normalization Multi-currency FX normalization; G005-real-time-streaming-via-sse Real-time streaming via SSE; G006-price-indicator-alerts Price & indicator alerts; G007-crypto-assets Crypto assets; G008-economic-earnings-calendar Economic & earnings calendar; G009-terminal-ux-accessibility-polish Terminal UX & accessibility polish; G010-test-coverage-ci-final-gate Test coverage, CI & final gate"
 }
