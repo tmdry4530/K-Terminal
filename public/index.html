@@ -11,6 +11,7 @@
     <header class="topbar">
       <div class="brand">K TERMINAL</div>
       <div class="topbar-spacer"></div>
+      <button id="settings-open" class="login-button" title="설정" aria-label="설정">⚙ 설정</button>
       <button id="login-open" class="login-button">LOGIN</button>
       <div class="clock-wrap">
         <span class="stream-badge" id="stream-state" title="실시간 스트림 상태">OFF</span>
@@ -55,6 +56,13 @@
         <button id="logout-submit" type="button">로그아웃</button>
       </div>
       <p id="auth-message" class="muted"></p>
+    </form>
+  </dialog>
+
+  <dialog id="settings-dialog" class="modal">
+    <form method="dialog" class="modal-card">
+      <header><strong>설정</strong><button value="cancel" class="icon-button" aria-label="닫기">×</button></header>
+      <div id="settings-dialog-body" class="widget-body"></div>
     </form>
   </dialog>
 

@@ -25,9 +25,9 @@ const state = {
 
 const DEFAULT_VIEWS = {
   market: {
-    left: ['market-pulse', 'watchlist', 'alerts'],
+    left: ['market-pulse', 'watchlist'],
     center: ['chart'],
-    right: ['data-sources', 'settings']
+    right: ['alerts', 'data-sources']
   },
   signals: {
     left: ['signals', 'watchlist'],
@@ -37,7 +37,7 @@ const DEFAULT_VIEWS = {
   chart: {
     left: ['watchlist', 'market-pulse'],
     center: ['chart'],
-    right: ['alerts', 'data-sources', 'settings']
+    right: ['alerts', 'data-sources']
   }
 };
 
@@ -47,15 +47,14 @@ const WIDGETS = {
   'data-sources': { title: 'DATA SOURCES', subtitle: '실제/지연/API', render: renderDataSources },
   chart: { title: 'CHART', subtitle: '캔들/기술지표', render: renderChartWidget, big: true },
   alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
-  settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
   'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true },
   positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
 };
 
-// Legacy widgets removed from the K Terminal surface. Keep filtering them so
-// stale localStorage/server layouts cannot resurrect the panels.
-const REMOVED_WIDGETS = new Set(['crypto-monitor', 'ai-assistant']);
+// Widgets removed from the panel surface (legacy, or moved elsewhere e.g. settings → header
+// modal). Keep filtering them so stale localStorage/server layouts cannot resurrect the panels.
+const REMOVED_WIDGETS = new Set(['crypto-monitor', 'ai-assistant', 'settings']);
 
 function isRenderableWidget(widgetId) {
   return Boolean(WIDGETS[widgetId]) && !REMOVED_WIDGETS.has(widgetId);
@@ -1219,6 +1218,13 @@ function installKeyboard() {
   });
 }
 
+function installSettings() {
+  $('#settings-open')?.addEventListener('click', () => {
+    renderSettings($('#settings-dialog-body')); // settings is config, not dashboard data → header modal
+    $('#settings-dialog').showModal();
+  });
+}
+
 function installAuth() {
   $('#login-open').addEventListener('click', () => $('#login-dialog').showModal());
   $('#login-submit').addEventListener('click', async () => authSubmit('/api/auth/login'));
@@ -1275,7 +1281,7 @@ function tickClock() {
 
 async function init() {
   tickClock(); setInterval(tickClock, 1000);
-  installTabs(); installAuth(); installSplitters(); installKeyboard();
+  installTabs(); installAuth(); installSettings(); installSplitters(); installKeyboard();
   let chartResizeTimer;
   window.addEventListener('resize', () => { clearTimeout(chartResizeTimer); chartResizeTimer = setTimeout(fitPriceChart, 150); });
   renderWorkspace();
