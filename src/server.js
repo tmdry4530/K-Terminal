@@ -3,7 +3,6 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config, providerFlags } from './config.js';
 import { store } from './store.js';
-import { brokerCapabilities, placeOrder } from './brokers.js';
 import { getChart, getSnapshot, MARKET_UNIVERSE } from './marketData.js';
 import { CRYPTO_UNIVERSE } from './cryptoMarket.js';
 import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
@@ -187,7 +186,6 @@ async function routeApi(req, res, url) {
       providers: providerFlags(),
       marketUniverse: MARKET_UNIVERSE,
       cryptoUniverse: CRYPTO_UNIVERSE,
-      brokerCapabilities: brokerCapabilities(),
       dataPolicy: {
         noFakeNumbers: true,
         statuses: ['실시간', '근실시간', '지연 데이터', 'API 필요', '데이터 없음', '오류'],
@@ -333,22 +331,6 @@ async function routeApi(req, res, url) {
     const provider = url.searchParams.get('provider');
     const updated = await store.deleteApiKey(authUser.id, provider);
     sendJson(res, 200, { user: updated });
-    return;
-  }
-
-  if (method === 'POST' && pathname === '/api/trading/order') {
-    const authUser = await requireUser(req, res);
-    if (!authUser) return;
-    const body = await readBody(req);
-    const result = await placeOrder({ userId: authUser.id, order: body.order || body, mode: body.mode || authUser.settings?.orderMode || 'paper', userSettings: authUser.settings || {} });
-    sendJson(res, result.accepted ? 200 : 400, result);
-    return;
-  }
-
-  if (method === 'GET' && pathname === '/api/trading/orders') {
-    const authUser = await requireUser(req, res);
-    if (!authUser) return;
-    sendJson(res, 200, { orders: store.listPaperOrders(authUser.id), brokerCapabilities: brokerCapabilities() });
     return;
   }
 

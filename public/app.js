@@ -37,12 +37,7 @@ const DEFAULT_VIEWS = {
   chart: {
     left: ['watchlist', 'market-pulse'],
     center: ['chart'],
-    right: ['alerts', 'data-sources']
-  },
-  order: {
-    left: ['watchlist', 'market-pulse'],
-    center: ['order-history', 'chart'],
-    right: ['settings', 'data-sources']
+    right: ['alerts', 'data-sources', 'settings']
   }
 };
 
@@ -51,7 +46,6 @@ const WIDGETS = {
   watchlist: { title: 'WATCHLIST', subtitle: '관심종목', render: renderWatchlist },
   'data-sources': { title: 'DATA SOURCES', subtitle: '실제/지연/API', render: renderDataSources },
   chart: { title: 'CHART', subtitle: '캔들/기술지표', render: renderChartWidget, big: true },
-  'order-history': { title: 'ORDER HISTORY', subtitle: '모의 주문', render: renderOrderHistory },
   alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
   settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
@@ -552,7 +546,6 @@ function renderDataSources(body) {
           ${providerRow('CoinGecko', true, '암호화폐 fallback. 공개 API')}
           ${providerRow('Coinbase', true, '암호화폐 fallback. 공개 API')}
           ${providerRow('Twelve Data', providers.twelveData, '시세 fallback. API 키 필요')}
-          ${providerRow('Alpaca Paper', providers.alpacaPaper, 'Paper 주문 API')}
         </tbody>
       </table>
       <div class="muted">공개 fallback은 실제 응답만 표시하며 값이 없으면 숫자를 채우지 않습니다.</div>
@@ -1009,19 +1002,6 @@ function macd(values, fast = 12, slow = 26, signal = 9) {
   const line = values.map((_, i) => fastEma[i] !== null && slowEma[i] !== null ? fastEma[i] - slowEma[i] : null);
   const signalLine = ema(line.map((v) => v === null ? Number.NaN : v), signal);
   return { macd: line, signal: signalLine, histogram: line.map((v, i) => v !== null && signalLine[i] !== null ? v - signalLine[i] : null) };
-}
-
-function requireLoginBody(body) {
-  body.innerHTML = `<div class="stack"><div class="badge warn">로그인 필요</div><div class="muted">포트폴리오, 사용자 API 키, 레이아웃 저장은 로그인 후 사용 가능합니다.</div><button id="login-inline">LOGIN</button></div>`;
-  $('#login-inline', body)?.addEventListener('click', () => $('#login-dialog').showModal());
-}
-
-function renderOrderHistory(body) {
-  if (!state.user) return requireLoginBody(body);
-  body.innerHTML = '<div id="orders">로딩 중</div>';
-  api('/api/trading/orders').then((data) => {
-    $('#orders', body).innerHTML = `<table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Qty</th><th>Type</th><th>Status</th></tr></thead><tbody>${(data.orders || []).map((o) => `<tr><td>${escapeHtml(o.createdAt?.slice(0, 16).replace('T', ' ') || '')}</td><td>${escapeHtml(o.symbol)}</td><td>${escapeHtml(o.side)}</td><td>${fmt(o.quantity)}</td><td>${escapeHtml(o.type)}</td><td>${escapeHtml(o.brokerStatus || o.status)}</td></tr>`).join('') || '<tr><td>주문 기록 없음</td><td colspan="5"></td></tr>'}</tbody></table>`;
-  }).catch((error) => { $('#orders', body).textContent = error.message; });
 }
 
 const ALERT_TYPES = [
