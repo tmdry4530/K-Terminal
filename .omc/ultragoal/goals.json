@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-04T15:41:17.868Z",
-  "updatedAt": "2026-06-04T15:56:47.722Z",
+  "updatedAt": "2026-06-04T16:11:00.508Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -35,13 +35,14 @@
       "id": "G003-ui",
       "title": "UI 버그 일괄 수정 + 최종 게이트",
       "objective": "sanitizer 빈-패널 DEFAULT 폴백, 로그인 autocomplete, 죽은 CSS 제거 등 모든 자잘한 UI 버그 수정. ai-slop-cleaner + verification + code-review(APPROVE) + architect(CLEAR) 통과.",
-      "status": "in_progress",
+      "status": "complete",
       "attempt": 1,
       "createdAt": "2026-06-04T15:41:17.868Z",
-      "updatedAt": "2026-06-04T15:56:47.722Z",
-      "startedAt": "2026-06-04T15:56:47.722Z"
+      "updatedAt": "2026-06-04T16:11:00.508Z",
+      "startedAt": "2026-06-04T15:56:47.722Z",
+      "evidence": "commits dad7020 + 5c8f169 pushed. sanitizer 폴백, autocomplete, 죽은CSS 12개 제거, 설정 모달 버튼 회귀수정. Playwright 검증 완료.",
+      "completedAt": "2026-06-04T16:11:00.508Z"
     }
   ],
-  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001 시그널 콕핏 재구성; G002-settings 시장·차트 탭 재구성 + SETTINGS 모달화; G003-ui UI 버그 일괄 수정 + 최종 게이트",
-  "activeGoalId": "G003-ui"
+  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001 시그널 콕핏 재구성; G002-settings 시장·차트 탭 재구성 + SETTINGS 모달화; G003-ui UI 버그 일괄 수정 + 최종 게이트"
 }
