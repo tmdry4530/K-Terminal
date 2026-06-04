@@ -6,9 +6,6 @@ import { store } from './store.js';
 import { brokerCapabilities, placeOrder } from './brokers.js';
 import { getChart, getSnapshot, MARKET_UNIVERSE } from './marketData.js';
 import { CRYPTO_UNIVERSE } from './cryptoMarket.js';
-import { getNewsWithOptionalTranslation } from './news.js';
-import { answerQuestion } from './ai.js';
-import { enrichPortfolio } from './portfolio.js';
 import { applySecurityHeaders, clientIp, createLimiter, sameOriginOk } from './security.js';
 import { createQuoteStream } from './stream.js';
 import { agentAction, bridgeDashboard, bridgeStatus, getWatchTarget, previewSignal, recentExecutions, recentSignals, setWatchTarget } from './autodom.js';
@@ -253,13 +250,6 @@ async function routeApi(req, res, url) {
     return;
   }
 
-  if (method === 'GET' && pathname === '/api/news') {
-    const symbol = url.searchParams.get('symbol') || user?.settings?.defaultSymbol || 'BTC-USD';
-    const news = await getNewsWithOptionalTranslation(symbol, userApiKeys);
-    sendJson(res, 200, news);
-    return;
-  }
-
   // --- auto-dom trading bridge (observer/cockpit; no order initiation from the terminal) ---
   if (method === 'GET' && pathname === '/api/autodom/status') {
     sendJson(res, 200, await bridgeStatus());
@@ -343,52 +333,6 @@ async function routeApi(req, res, url) {
     const provider = url.searchParams.get('provider');
     const updated = await store.deleteApiKey(authUser.id, provider);
     sendJson(res, 200, { user: updated });
-    return;
-  }
-
-  if (method === 'GET' && pathname === '/api/portfolio') {
-    const authUser = await requireUser(req, res);
-    if (!authUser) return;
-    const portfolio = store.getPortfolio(authUser.id);
-    const enriched = await enrichPortfolio(portfolio, userApiKeys);
-    sendJson(res, 200, enriched);
-    return;
-  }
-
-  if (method === 'PUT' && pathname === '/api/portfolio') {
-    const authUser = await requireUser(req, res);
-    if (!authUser) return;
-    const body = await readBody(req);
-    const portfolio = await store.updatePortfolio(authUser.id, body);
-    const enriched = await enrichPortfolio(portfolio, userApiKeys);
-    sendJson(res, 200, enriched);
-    return;
-  }
-
-  if (['POST', 'PUT'].includes(method) && pathname === '/api/portfolio/holding') {
-    const authUser = await requireUser(req, res);
-    if (!authUser) return;
-    const body = await readBody(req);
-    const portfolio = await store.upsertHolding(authUser.id, body);
-    const enriched = await enrichPortfolio(portfolio, userApiKeys);
-    sendJson(res, 200, enriched);
-    return;
-  }
-
-  if (method === 'DELETE' && pathname === '/api/portfolio/holding') {
-    const authUser = await requireUser(req, res);
-    if (!authUser) return;
-    const id = url.searchParams.get('id');
-    const portfolio = await store.deleteHolding(authUser.id, id);
-    const enriched = await enrichPortfolio(portfolio, userApiKeys);
-    sendJson(res, 200, enriched);
-    return;
-  }
-
-  if (method === 'POST' && pathname === '/api/ai/chat') {
-    const body = await readBody(req);
-    const answer = await answerQuestion({ question: body.question, context: body.context || {}, userApiKeys, provider: body.provider || user?.settings?.aiProvider });
-    sendJson(res, 200, answer);
     return;
   }
 

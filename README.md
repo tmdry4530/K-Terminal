@@ -58,7 +58,7 @@ docker compose up --build
 ## 주요 화면
 
 - 상단: 전역 메뉴, 명령창, AI 버튼, 로그인, 지수 스트립
-- 내부 탭: 시장, 시그널, 차트, 포트폴리오, AI
+- 내부 탭: 시장, 시그널, 차트, 주문
 - 패널: 좌측/중앙/우측 폭 조절 가능
 - 위젯: 드래그앤드롭 순서 변경, CSS resize 기반 크기 조절, 사용자별 레이아웃 저장
 - 차트: 캔들, 거래량, MA20, MA50, Bollinger Band, RSI, MACD
@@ -86,10 +86,8 @@ docker compose up --build
 
 ## 명령창 예시
 
-- `AAPL`: AAPL 차트로 이동
-- `NEWS NVDA`: NVDA 뉴스 화면 이동
-- `PORT`: 포트폴리오 화면 이동
-- `AI NVDA 리스크 요약`: AI 탭 이동
+- `BTC-USD`: BTC 차트로 이동
+- `ETH-USD`, `SOL-USD`: 해당 코인 차트로 이동 (코인 심볼 입력 → 차트)
 
 ## 프로젝트 구조
 
@@ -100,10 +98,8 @@ src/
   marketData.js   시세/차트 fallback 라우팅
   autodom.js      auto-dom 브릿지 프록시 + 시그널/체결 인박스 리더
   stream.js       SSE 멀티플렉스 (시세 + 시그널)
-  news.js         뉴스, 감성, 중요도, 번역 연결
-  portfolio.js    보유종목 평가/비중/리밸런싱
   brokers.js      Paper Trading, Alpaca Paper, live 주문 안전 차단
-  store.js        파일 기반 사용자/세션/설정/API 키/포트폴리오 저장
+  store.js        파일 기반 사용자/세션/설정/API 키 저장
   crypto.js       scrypt 비밀번호 해시, AES-GCM API 키 암호화
 public/
   index.html

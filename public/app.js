@@ -10,10 +10,7 @@ const state = {
   interval: localStorage.getItem('kt.interval') || '1D',
   snapshot: null,
   chart: null,
-  news: null,
-  portfolio: null,
   watchlistQuotes: null,
-  chat: [],
   dragging: null,
   layout: loadLayout(),
   priceMap: new Map(),
@@ -30,28 +27,23 @@ const state = {
 const DEFAULT_VIEWS = {
   market: {
     left: ['market-pulse', 'watchlist', 'alerts'],
-    center: ['chart', 'crypto-monitor', 'news'],
-    right: ['ai-assistant', 'data-sources']
+    center: ['chart', 'crypto-monitor'],
+    right: ['data-sources', 'settings']
   },
   signals: {
     left: ['signals', 'positions'],
     center: ['execution-gate', 'chart'],
-    right: ['ai-assistant', 'watchlist']
+    right: ['crypto-monitor', 'watchlist']
   },
   chart: {
     left: ['watchlist', 'market-pulse'],
     center: ['chart'],
-    right: ['ai-assistant', 'crypto-monitor', 'alerts']
+    right: ['crypto-monitor', 'alerts']
   },
-  portfolio: {
-    left: ['portfolio-summary', 'portfolio-risk'],
-    center: ['portfolio-table', 'portfolio-graph'],
-    right: ['order-ticket', 'order-history', 'settings']
-  },
-  ai: {
-    left: ['market-pulse', 'watchlist'],
-    center: ['ai-assistant'],
-    right: ['news', 'crypto-monitor', 'portfolio-summary']
+  order: {
+    left: ['order-ticket', 'watchlist'],
+    center: ['order-history', 'chart'],
+    right: ['crypto-monitor', 'settings']
   }
 };
 
@@ -60,15 +52,9 @@ const WIDGETS = {
   watchlist: { title: 'WATCHLIST', subtitle: '관심종목', render: renderWatchlist },
   'data-sources': { title: 'DATA SOURCES', subtitle: '실제/지연/API', render: renderDataSources },
   chart: { title: 'CHART', subtitle: '캔들/기술지표', render: renderChartWidget, big: true },
-  news: { title: 'NEWS & TRANSLATION', subtitle: '원문/번역/감성', render: renderNews, big: true },
-  'portfolio-summary': { title: 'PORTFOLIO', subtitle: '요약', render: renderPortfolioSummary },
-  'portfolio-table': { title: 'HOLDINGS', subtitle: '수동 입력/평가', render: renderPortfolioTable, big: true },
-  'portfolio-graph': { title: 'PORTFOLIO GRAPH', subtitle: '비중 크게 보기', render: renderPortfolioGraph, big: true },
-  'portfolio-risk': { title: 'PORTFOLIO RISK', subtitle: '섹터/국가/통화', render: renderPortfolioRisk },
   'order-ticket': { title: 'ORDER & EXECUTION', subtitle: 'Paper 기본', render: renderOrderTicket },
   'order-history': { title: 'ORDER HISTORY', subtitle: '모의 주문', render: renderOrderHistory },
   alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
-  'ai-assistant': { title: 'AI ASSISTANT', subtitle: 'Gemini/로컬', render: renderAiAssistant, big: true },
   settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
   'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
@@ -293,8 +279,6 @@ function moveWidget(widgetId, targetPanel, beforeWidgetId = null) {
 
 async function refreshWidget(widgetId) {
   if (widgetId === 'chart') await loadChart();
-  if (widgetId === 'news') await loadNews();
-  if (widgetId.startsWith('portfolio')) await loadPortfolio();
   if (['market-pulse', 'watchlist', 'crypto-monitor'].includes(widgetId)) await loadSnapshot();
   renderWorkspace();
 }
@@ -343,15 +327,6 @@ async function loadChart() {
   state.chart = await api(`/api/market/chart?symbol=${encodeURIComponent(state.activeSymbol)}&range=${encodeURIComponent(state.range)}&interval=${encodeURIComponent(state.interval)}`);
   $('#active-symbol-status').textContent = `${state.activeSymbol} ${state.range}/${state.interval} ${state.chart.status}`;
   evaluateAlerts(state.watchlistQuotes?.quotes || state.snapshot?.quotes || []); // RSI alerts use fresh chart
-}
-
-async function loadNews() {
-  state.news = await api(`/api/news?symbol=${encodeURIComponent(state.activeSymbol)}`);
-}
-
-async function loadPortfolio() {
-  if (!state.user) return;
-  state.portfolio = await api('/api/portfolio');
 }
 
 async function loadWatchlistQuotes() {
@@ -580,9 +555,8 @@ function renderDataSources(body) {
         <tbody>
           ${providerRow('Binance', true, '암호화폐 시세/차트. 공개 API')}
           ${providerRow('CoinGecko', true, '암호화폐 fallback. 공개 API')}
-          ${providerRow('Finnhub', providers.finnhub, '암호화폐 뉴스. API 키 필요')}
+          ${providerRow('Coinbase', true, '암호화폐 fallback. 공개 API')}
           ${providerRow('Twelve Data', providers.twelveData, '시세 fallback. API 키 필요')}
-          ${providerRow('Gemini', providers.gemini, '번역/AI 분석. 선택 연결')}
           ${providerRow('Alpaca Paper', providers.alpacaPaper, 'Paper 주문 API')}
         </tbody>
       </table>
@@ -1056,123 +1030,9 @@ function macd(values, fast = 12, slow = 26, signal = 9) {
   return { macd: line, signal: signalLine, histogram: line.map((v, i) => v !== null && signalLine[i] !== null ? v - signalLine[i] : null) };
 }
 
-function renderNews(body, widgetId, options = {}) {
-  body.innerHTML = `
-    <div class="row gap">
-      <input id="news-symbol" value="${escapeHtml(state.activeSymbol)}" />
-      <button id="news-load">LOAD</button>
-      <span>${state.news ? statusBadge(state.news.status, state.news.statusMessage) : statusBadge('데이터 없음')}</span>
-    </div>
-    <div class="scroll" style="max-height:${options.big ? '690px' : 'none'}; margin-top:6px" id="news-list"></div>`;
-  $('#news-load', body).addEventListener('click', async () => {
-    state.activeSymbol = $('#news-symbol', body).value.trim().toUpperCase() || state.activeSymbol;
-    await loadNews(); renderWorkspace();
-  });
-  const list = $('#news-list', body);
-  if (!state.news || state.news.symbol !== state.activeSymbol.replace(/\.(KS|KQ)$/u, '')) {
-    loadNews().then(renderWorkspace).catch((error) => { list.textContent = `뉴스 데이터 없음: ${error.message}`; });
-    return;
-  }
-  list.innerHTML = (state.news.items || []).map((item) => `
-    <article class="news-item">
-      ${extLink(item.url, item.title, 'news-title')}
-      <div class="news-ko">${item.koTitle ? escapeHtml(item.koTitle) : '번역 데이터 없음 / Gemini API 필요'}</div>
-      <div class="muted">${escapeHtml(item.koSummary || item.summary || '')}</div>
-      <div class="news-meta">
-        ${statusBadge(item.sentiment?.label || '중립')} ${statusBadge(item.importance || '낮음')} ${statusBadge(item.translationStatus || 'API 필요')}
-        <span>${escapeHtml(item.source || '')}</span><span>${escapeHtml(item.publishedAt ? item.publishedAt.slice(0, 16).replace('T', ' ') : '')}</span><span>${escapeHtml((item.relatedTickers || []).join(','))}</span>
-      </div>
-    </article>`).join('') || `<div class="muted">${escapeHtml(state.news.statusMessage || '뉴스 데이터 없음')}</div>`;
-}
-
 function requireLoginBody(body) {
   body.innerHTML = `<div class="stack"><div class="badge warn">로그인 필요</div><div class="muted">포트폴리오, 사용자 API 키, 레이아웃 저장은 로그인 후 사용 가능합니다.</div><button id="login-inline">LOGIN</button></div>`;
   $('#login-inline', body)?.addEventListener('click', () => $('#login-dialog').showModal());
-}
-
-function renderPortfolioSummary(body) {
-  if (!state.user) return requireLoginBody(body);
-  if (!state.portfolio) { loadPortfolio().then(renderWorkspace).catch(() => {}); body.textContent = '포트폴리오 로딩 중'; return; }
-  const s = state.portfolio.summary || {};
-  const base = s.baseCurrency || state.portfolio.baseCurrency || 'USD';
-  const currencies = ['USD', 'KRW', 'EUR', 'JPY'];
-  body.innerHTML = `
-    <div class="row gap" style="justify-content:space-between">
-      <label style="grid-auto-flow:column; align-items:center; gap:5px">기준통화
-        <select id="base-currency">${currencies.map((c) => `<option ${base === c ? 'selected' : ''}>${c}</option>`).join('')}</select>
-      </label>
-      <span class="muted">${escapeHtml(s.updatedAt ? s.updatedAt.slice(11, 19) : '')}</span>
-    </div>
-    <div class="grid2" style="margin-top:6px">
-      <div class="metric"><div class="k">Total (${escapeHtml(base)})</div><div class="v">${fmt(s.totalValue)}</div></div>
-      <div class="metric"><div class="k">P/L (${escapeHtml(base)})</div><div class="v ${clsChange(s.pnl)}">${signed(s.pnl)}</div></div>
-      <div class="metric"><div class="k">P/L %</div><div class="v ${clsChange(s.pnlPercent)}">${pct(s.pnlPercent)}</div></div>
-      <div class="metric"><div class="k">Missing Px / FX</div><div class="v ${(s.missingPrices?.length || s.missingFx?.length) ? 'down' : 'up'}">${s.missingPrices?.length || 0} / ${s.missingFx?.length || 0}</div></div>
-    </div>
-    <div class="muted" style="margin-top:8px">${escapeHtml(s.dataStatus || '')}${s.missingFx?.length ? ' · 환율 없음: ' + escapeHtml(s.missingFx.join(', ')) : ''}</div>`;
-  $('#base-currency', body)?.addEventListener('change', async (event) => {
-    await api('/api/portfolio', { method: 'PUT', body: { baseCurrency: event.target.value } });
-    state.portfolio = null;
-    await loadPortfolio();
-    renderWorkspace();
-  });
-}
-
-function renderPortfolioTable(body, widgetId, options = {}) {
-  if (!state.user) return requireLoginBody(body);
-  body.innerHTML = `<div id="portfolio-table-inner">로딩 중</div>`;
-  if (!state.portfolio) { loadPortfolio().then(renderWorkspace).catch((error) => { $('#portfolio-table-inner', body).textContent = error.message; }); return; }
-  $('#portfolio-table-inner', body).innerHTML = `
-    <form class="form-grid" id="holding-form">
-      <label>Symbol<input name="symbol" placeholder="AAPL" required></label>
-      <label>Qty<input name="quantity" type="number" step="0.0001" required></label>
-      <label>Avg Px<input name="averagePrice" type="number" step="0.0001"></label>
-      <label>Target %<input name="targetWeight" type="number" step="0.1"></label>
-      <label title="매입 시점 환율(기준통화 1단위당 native). 입력하면 환차익을 분리 계산합니다.">Buy FX<input name="purchaseFxRate" type="number" step="0.0001"></label>
-      <button>ADD / UPDATE</button>
-    </form>
-    <div class="scroll" style="max-height:${options.big ? '640px' : 'none'}; margin-top:8px">
-    <table class="table"><thead><tr><th>Symbol</th><th>Ccy</th><th>Qty</th><th>Last</th><th>Value</th><th>Value(${escapeHtml(base)})</th><th>P/L</th><th>Wgt</th><th>FX</th><th>Status</th><th></th></tr></thead><tbody>
-      ${(state.portfolio.holdings || []).map((h) => `<tr>
-        <td class="left"><button class="symbol-link" data-symbol="${escapeHtml(h.symbol)}">${escapeHtml(h.symbol)}</button></td><td>${escapeHtml(h.currency || '')}</td><td>${fmt(h.quantity)}</td><td>${fmt(h.lastPrice)}</td><td>${fmt(h.marketValueNative)}</td><td>${fmt(h.marketValueBase)}</td><td class="${clsChange(h.pnl)}" title="native ${signed(h.pnl)} / base ${signed(h.pnlBase)}">${signed(h.pnl)}</td><td>${pct(h.weight)}</td><td>${h.currency === base ? '<span class="badge">1.0000</span>' : (h.fxRate === null ? statusBadge('데이터 없음', h.fxStatus || '') : `<span class="badge ok" title="${escapeHtml(h.fxSource || '')}">${fmt(h.fxRate, 4)}</span>`)}</td><td>${statusBadge(h.priceStatus, h.quoteStatusMessage)}</td><td><button class="delete-holding" data-id="${escapeHtml(h.id)}">DEL</button></td>
-      </tr>`).join('') || '<tr><td>보유 종목 없음</td><td colspan="10"></td></tr>'}
-    </tbody></table></div>`;
-  $('#holding-form', body).addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
-    await api('/api/portfolio/holding', { method: 'POST', body: data });
-    state.portfolio = null;
-    await loadPortfolio();
-    renderWorkspace();
-  });
-  $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
-  $$('.delete-holding', body).forEach((button) => button.addEventListener('click', async () => {
-    await api(`/api/portfolio/holding?id=${encodeURIComponent(button.dataset.id)}`, { method: 'DELETE' });
-    state.portfolio = null; await loadPortfolio(); renderWorkspace();
-  }));
-}
-
-function renderPortfolioGraph(body, widgetId, options = {}) {
-  if (!state.user) return requireLoginBody(body);
-  if (!state.portfolio) { loadPortfolio().then(renderWorkspace).catch(() => {}); body.textContent = '로딩 중'; return; }
-  const holdings = (state.portfolio.holdings || []).filter((h) => Number.isFinite(Number(h.weight))).sort((a, b) => b.weight - a.weight);
-  body.innerHTML = `
-    <button id="portfolio-big">크게 보기</button>
-    <div class="stack" style="margin-top:8px; max-height:${options.big ? '700px' : 'none'}; overflow:auto">
-      ${holdings.map((h) => `<div><div class="row" style="justify-content:space-between"><span>${escapeHtml(h.symbol)} / ${escapeHtml(h.sector || '')}</span><span>${pct(h.weight)}</span></div><div class="progress-bar ${h.rebalanceNeeded ? 'warn' : ''}"><div style="width:${Math.max(2, Math.min(100, h.weight || 0))}%"></div></div></div>`).join('') || '<div class="muted">표시할 평가액 데이터 없음</div>'}
-    </div>`;
-  $('#portfolio-big', body).addEventListener('click', () => openBigWidget('portfolio-graph'));
-}
-
-function renderPortfolioRisk(body) {
-  if (!state.user) return requireLoginBody(body);
-  if (!state.portfolio) { loadPortfolio().then(renderWorkspace).catch(() => {}); body.textContent = '로딩 중'; return; }
-  const exposureHtml = (title, map) => `<div><strong>${title}</strong>${Object.entries(map || {}).sort((a, b) => b[1] - a[1]).map(([key, value]) => {
-    const pctValue = state.portfolio.summary?.totalValue ? (value / state.portfolio.summary.totalValue) * 100 : null;
-    return `<div class="row" style="justify-content:space-between"><span>${escapeHtml(key)}</span><span>${pct(pctValue)}</span></div>`;
-  }).join('') || '<div class="muted">데이터 없음</div>'}</div>`;
-  const rebalance = (state.portfolio.holdings || []).filter((h) => h.rebalanceNeeded);
-  body.innerHTML = `<div class="stack">${exposureHtml('Sector', state.portfolio.exposure?.sector)}${exposureHtml('Country', state.portfolio.exposure?.country)}${exposureHtml('Currency', state.portfolio.exposure?.currency)}<div><strong>Rebalance</strong>${rebalance.map((h) => `<div class="muted">${escapeHtml(h.symbol)} ${signed(h.rebalanceDeltaValue)}</div>`).join('') || '<div class="muted">임계치 초과 없음 / 목표 비중 데이터 없음</div>'}</div></div>`;
 }
 
 function renderOrderTicket(body) {
@@ -1343,43 +1203,8 @@ function renderAlerts(body) {
   }));
 }
 
-function renderAiAssistant(body, widgetId, options = {}) {
-  body.innerHTML = `
-    <div class="stack">
-      <div class="row gap"><span>${statusBadge(state.meta?.providers?.gemini ? 'Gemini 연결' : '로컬 규칙', 'Gemini API 키가 없으면 로컬 요약이 사용됩니다.')}</span><span class="muted">컨텍스트: 시세/뉴스/차트/포트폴리오</span></div>
-      <div id="chat-log" class="scroll" style="max-height:${options.big ? '600px' : 'none'}"></div>
-      <textarea class="ai-input" id="ai-question" placeholder="예: NVDA 최근 뉴스와 차트 기준 리스크를 요약해줘"></textarea>
-      <button id="ai-send">ASK</button>
-    </div>`;
-  renderChatLog($('#chat-log', body));
-  $('#ai-send', body).addEventListener('click', async () => {
-    const question = $('#ai-question', body).value.trim();
-    if (!question) return;
-    state.chat.push({ role: 'user', text: question, time: new Date().toISOString() });
-    renderChatLog($('#chat-log', body));
-    const context = { symbol: state.activeSymbol, quote: quoteFor(state.activeSymbol), news: state.news, chart: state.chart, portfolio: state.portfolio };
-    try {
-      const answer = await api('/api/ai/chat', { method: 'POST', body: { question, context, provider: state.user?.settings?.aiProvider || (state.meta?.providers?.gemini ? 'gemini' : 'local') } });
-      state.chat.push({ role: 'assistant', text: answer.answer, time: new Date().toISOString(), provider: answer.provider, status: answer.status });
-    } catch (error) {
-      state.chat.push({ role: 'assistant', text: `AI 응답 오류: ${error.message}`, time: new Date().toISOString() });
-    }
-    $('#ai-question', body).value = '';
-    renderChatLog($('#chat-log', body));
-  });
-}
-
-function renderChatLog(host) {
-  host.innerHTML = state.chat.map((m) => `<div class="chat-message"><div class="muted">${escapeHtml(m.role)} ${escapeHtml(m.provider || '')} ${escapeHtml(m.status || '')}</div><div style="white-space:pre-wrap">${escapeHtml(m.text)}</div></div>`).join('') || '<div class="muted">질문을 입력하십시오. API 키가 없으면 로컬 규칙 기반 요약이 작동합니다.</div>';
-  host.scrollTop = host.scrollHeight;
-}
-
-function quoteFor(symbol) {
-  return state.snapshot?.quotes?.find((q) => q.symbol === symbol) || state.watchlistQuotes?.quotes?.find((q) => q.symbol === symbol) || null;
-}
-
 function renderSettings(body) {
-  const providers = ['finnhub', 'twelvedata', 'gemini', 'dart'];
+  const providers = ['finnhub', 'twelvedata'];
   body.innerHTML = `
     <div class="stack">
       <div>${state.user ? `로그인: ${escapeHtml(state.user.email)}` : statusBadge('로그인 필요')}</div>
@@ -1414,12 +1239,12 @@ function renderSettings(body) {
 
 async function selectSymbol(symbol) {
   state.activeSymbol = symbol;
-  state.chart = null; state.news = null;
+  state.chart = null;
   localStorage.setItem('kt.activeSymbol', symbol);
   state.activeTab = 'chart';
   updateTabs();
   renderWorkspace();
-  setTimeout(() => Promise.allSettled([loadChart(), loadNews()]).then(renderWorkspace), 0);
+  setTimeout(() => loadChart().then(renderWorkspace).catch(() => {}), 0);
 }
 
 function updateTabs() {
@@ -1434,7 +1259,7 @@ function installTabs() {
     backgroundLoadForTab(state.activeTab);
   }));
   $$('.global-menu button').forEach((button) => button.addEventListener('click', () => {
-    const map = { markets: 'market', portfolio: 'portfolio', research: 'signals', tools: 'chart', ai: 'ai' };
+    const map = { market: 'market', signals: 'signals', chart: 'chart', order: 'order' };
     state.activeTab = map[button.dataset.global] || 'market';
     updateTabs(); renderWorkspace(); backgroundLoadForTab(state.activeTab);
   }));
@@ -1442,7 +1267,6 @@ function installTabs() {
 
 function backgroundLoadForTab(tab) {
   if (tab === 'chart') loadChart().then(renderWorkspace).catch(() => {});
-  if (tab === 'portfolio') loadPortfolio().then(renderWorkspace).catch(() => {});
 }
 
 function pushCommandHistory(raw) {
@@ -1459,12 +1283,11 @@ function updateCommandList() {
     ...(state.meta?.cryptoUniverse?.map((item) => item.symbol) || []),
     'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BNB-USD', 'ADA-USD', 'DOGE-USD', 'AVAX-USD', 'BTC-KRW', 'ETH-KRW'
   ])];
-  const options = [...state.cmdHistory, ...symbols, 'NEWS ', 'PORT', 'AI '];
+  const options = [...state.cmdHistory, ...symbols];
   list.innerHTML = options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
 }
 
 function installCommand() {
-  $('#ai-copilot').addEventListener('click', () => { state.activeTab = 'ai'; updateTabs(); renderWorkspace(); });
   updateCommandList();
   $('#command-input').addEventListener('keydown', async (event) => {
     if (event.key === 'ArrowUp' && !event.currentTarget.value.trim() && state.cmdHistory.length) {
@@ -1476,12 +1299,8 @@ function installCommand() {
     const raw = event.currentTarget.value.trim();
     if (!raw) return;
     pushCommandHistory(raw);
-    const [cmd, arg] = raw.split(/\s+/);
-    const upper = cmd.toUpperCase();
-    if (upper === 'NEWS') { state.activeSymbol = (arg || state.activeSymbol).toUpperCase(); state.activeTab = 'market'; state.news = null; await loadNews().catch(() => {}); }
-    else if (upper === 'PORT') { state.activeTab = 'portfolio'; await loadPortfolio().catch(() => {}); }
-    else if (upper === 'AI') { state.activeTab = 'ai'; state.chat.push({ role: 'user', text: raw.slice(2).trim(), time: new Date().toISOString() }); }
-    else { state.activeSymbol = upper; state.activeTab = 'chart'; state.chart = null; await loadChart().catch(() => {}); }
+    const [cmd] = raw.split(/\s+/);
+    state.activeSymbol = cmd.toUpperCase(); state.activeTab = 'chart'; state.chart = null; await loadChart().catch(() => {});
     event.currentTarget.value = '';
     updateTabs(); renderWorkspace();
   });
@@ -1495,7 +1314,6 @@ function installKeyboard() {
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable) return;
     if (event.key === '/') { event.preventDefault(); $('#command-input').focus(); }
     else if (event.key === '?') { event.preventDefault(); const dialog = $('#help-dialog'); if (dialog.open) dialog.close(); else dialog.showModal(); }
-    else if (event.key === 'a' || event.key === 'A') { state.activeTab = 'ai'; updateTabs(); renderWorkspace(); }
     else if (event.key === 'r' || event.key === 'R') { loadSnapshot().then(renderWorkspace).catch(() => {}); backgroundLoadForTab(state.activeTab); }
     else if (/^[1-9]$/.test(event.key)) { const button = $$('#subtabs button')[Number(event.key) - 1]; if (button) button.click(); }
   });
@@ -1507,7 +1325,7 @@ function installAuth() {
   $('#register-submit').addEventListener('click', async () => authSubmit('/api/auth/register'));
   $('#logout-submit').addEventListener('click', async () => {
     await api('/api/auth/logout', { method: 'POST' });
-    state.user = null; state.portfolio = null; await loadMeta(); renderWorkspace(); $('#auth-message').textContent = '로그아웃 완료';
+    state.user = null; await loadMeta(); renderWorkspace(); $('#auth-message').textContent = '로그아웃 완료';
   });
 }
 
@@ -1566,7 +1384,7 @@ async function init() {
     renderWorkspace();
     await loadSnapshot();
     renderWorkspace();
-    setTimeout(() => Promise.allSettled([loadWatchlistQuotes(), loadChart(), loadNews()]).then(renderWorkspace), 50);
+    setTimeout(() => Promise.allSettled([loadWatchlistQuotes(), loadChart()]).then(renderWorkspace), 50);
     startStream();
     // Fallback polling only kicks in when the live SSE stream is not connected.
     setInterval(() => { if (state.streamState !== 'LIVE') loadSnapshot().then(renderWorkspace).catch(() => {}); }, 60_000);
