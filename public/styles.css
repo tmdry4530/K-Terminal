@@ -93,13 +93,11 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 .widget-body > .chart-wrap { height: 100%; min-height: 300px; }
 
 .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .row { display: flex; align-items: center; }
 .gap { gap: 6px; }
 .stack { display: grid; gap: 7px; }
 .scroll { overflow: auto; }
 .muted { color: var(--muted); }
-.mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
 .metric { padding: 6px; border: 1px solid var(--line); background: #06090d; }
 .metric .k { color: var(--muted); font-size: 10px; text-transform: uppercase; }
 .metric .v { font-size: 16px; font-weight: 800; margin-top: 3px; }
@@ -123,14 +121,6 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 .chart-svg { width: 100%; height: 100%; min-height: 260px; background: #030507; border: 1px solid var(--line); }
 .indicator-svg { width: 100%; height: 70px; background: #030507; border: 1px solid var(--line); }
 
-.news-item, .filing-item, .chat-message { border-bottom: 1px solid var(--line); padding: 7px 0; display: grid; gap: 4px; }
-.news-title { font-weight: 700; line-height: 1.35; }
-.news-ko { color: #b8d1ff; line-height: 1.35; }
-.news-meta { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 10px; }
-
-.paper-banner { border: 1px solid rgba(244,184,74,.5); background: rgba(244,184,74,.08); padding: 8px; color: #f6ca78; font-weight: 800; }
-.live-block { border: 1px solid rgba(240,91,101,.5); background: rgba(240,91,101,.08); padding: 8px; color: #ffa1a8; }
-
 .modal { background: transparent; border: 0; padding: 0; color: var(--text); }
 .modal::backdrop { background: rgba(0,0,0,.75); }
 .modal-card { min-width: 340px; display: grid; gap: 12px; padding: 14px; background: #071015; border: 1px solid var(--line-strong); box-shadow: 0 20px 80px rgba(0,0,0,.6); }
@@ -141,7 +131,6 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 .form-grid { display: grid; grid-template-columns: repeat(4, minmax(80px, 1fr)); gap: 6px; align-items: end; }
 .form-grid.compact { grid-template-columns: repeat(3, minmax(70px, 1fr)); }
 .form-grid button { align-self: end; }
-textarea.ai-input { width: 100%; min-height: 70px; resize: vertical; }
 
 .progress-bar { height: 9px; background: #050708; border: 1px solid var(--line); overflow: hidden; }
 .progress-bar > div { height: 100%; background: linear-gradient(90deg, #255b42, #4bb67f); }
@@ -152,8 +141,6 @@ textarea.ai-input { width: 100%; min-height: 70px; resize: vertical; }
 .toast { background: #0c1419; border: 1px solid var(--line-strong); border-left: 3px solid var(--accent); padding: 8px 12px; font-size: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.5); max-width: 320px; opacity: 1; transition: opacity .4s ease; }
 .toast.warn { border-left-color: var(--amber); }
 .toast.out { opacity: 0; }
-
-.cal-watch td { background: rgba(127,104,255,.12); }
 
 /* auto-dom execution gate + signal feed */
 .gate-mode { font-weight: 800; font-size: 15px; text-align: center; padding: 9px; border-radius: 6px; border: 1px solid var(--line-strong); letter-spacing: .06em; }

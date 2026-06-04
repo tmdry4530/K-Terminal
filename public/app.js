@@ -169,12 +169,19 @@ function skeletonBlock(rows = 5) {
 
 function getViewLayout(tab = state.activeTab) {
   const saved = state.layout.tabs?.[tab];
-  const base = DEFAULT_VIEWS[tab] || DEFAULT_VIEWS.market;
-  return {
-    left: sanitizePanelWidgets(saved?.left || base.left),
-    center: sanitizePanelWidgets(saved?.center || base.center),
-    right: sanitizePanelWidgets(saved?.right || base.right)
+  const base = DEFAULT_VIEWS[tab] || DEFAULT_VIEWS.signals;
+  // Use the saved panel if it still has renderable widgets. If a saved panel had widgets but
+  // they were ALL removed/renamed (stale layout), fall back to defaults instead of a blank panel.
+  // An intentionally-emptied panel (saved as []) is preserved.
+  const pick = (key) => {
+    const savedArr = saved?.[key];
+    if (Array.isArray(savedArr)) {
+      const clean = sanitizePanelWidgets(savedArr);
+      if (clean.length || savedArr.length === 0) return clean;
+    }
+    return sanitizePanelWidgets(base[key]);
   };
+  return { left: pick('left'), center: pick('center'), right: pick('right') };
 }
 
 function setViewLayout(tab, next) {
@@ -1153,7 +1160,7 @@ function renderSettings(body) {
       <label>기본 종목<input id="default-symbol" value="${escapeHtml(state.user?.settings?.defaultSymbol || state.activeSymbol)}"></label>
       <button id="save-default" ${state.user ? '' : 'disabled'}>SAVE DEFAULT</button>
       <div class="muted">API 키는 서버 파일 DB에 AES-GCM으로 암호화 저장됩니다. 운영 서버에서는 SECRET_KEY를 강한 난수로 고정하고 백업/권한 관리를 분리하십시오.</div>
-      ${providers.map((p) => `<form class="row gap api-key-form" data-provider="${p}"><input type="password" placeholder="${p.toUpperCase()} API KEY"/><button ${state.user ? '' : 'disabled'}>SAVE</button><button type="button" class="delete-key" ${state.user ? '' : 'disabled'}>DEL</button><span>${statusBadge(state.user?.apiKeyProviders?.[p] ? '정상' : 'API 필요')}</span></form>`).join('')}
+      ${providers.map((p) => `<form class="row gap api-key-form" data-provider="${p}"><input type="password" autocomplete="off" placeholder="${p.toUpperCase()} API KEY"/><button ${state.user ? '' : 'disabled'}>SAVE</button><button type="button" class="delete-key" ${state.user ? '' : 'disabled'}>DEL</button><span>${statusBadge(state.user?.apiKeyProviders?.[p] ? '정상' : 'API 필요')}</span></form>`).join('')}
       <button id="reset-layout">RESET LAYOUT</button>
       <button id="save-layout" ${state.user ? '' : 'disabled'}>SAVE LAYOUT TO ACCOUNT</button>
     </div>`;

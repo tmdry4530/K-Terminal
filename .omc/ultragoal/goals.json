@@ -1,7 +1,7 @@
 {
   "version": 1,
   "createdAt": "2026-06-04T15:41:17.868Z",
-  "updatedAt": "2026-06-04T15:51:01.231Z",
+  "updatedAt": "2026-06-04T15:56:47.722Z",
   "briefPath": ".omc/ultragoal/brief.md",
   "goalsPath": ".omc/ultragoal/goals.json",
   "ledgerPath": ".omc/ultragoal/ledger.jsonl",
@@ -23,20 +23,25 @@
       "id": "G002-settings",
       "title": "시장·차트 탭 재구성 + SETTINGS 모달화",
       "objective": "시장=시장 개요, 차트=집중 차트로 목적 분리. SETTINGS를 패널 위젯에서 헤더 기어→모달로 이동해 패널 정리, 위젯 분포 재균형. Playwright 검증, 콘솔 0.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "complete",
+      "attempt": 1,
       "createdAt": "2026-06-04T15:41:17.868Z",
-      "updatedAt": "2026-06-04T15:41:17.868Z"
+      "updatedAt": "2026-06-04T15:55:31.292Z",
+      "startedAt": "2026-06-04T15:55:30.513Z",
+      "completedAt": "2026-06-04T15:55:31.292Z",
+      "evidence": "commit 299c9c8 pushed. SETTINGS→헤더 ⚙ 모달(default-symbol/API키/레이아웃), 패널 레지스트리+시장/차트에서 제거, sanitizer에 추가. 시장/차트 데이터 대시보드로 재구성. Playwright: 두 탭 settings 위젯 없음, ⚙→모달 렌더, 콘솔0. check/test(33)/smoke green."
     },
     {
       "id": "G003-ui",
       "title": "UI 버그 일괄 수정 + 최종 게이트",
       "objective": "sanitizer 빈-패널 DEFAULT 폴백, 로그인 autocomplete, 죽은 CSS 제거 등 모든 자잘한 UI 버그 수정. ai-slop-cleaner + verification + code-review(APPROVE) + architect(CLEAR) 통과.",
-      "status": "pending",
-      "attempt": 0,
+      "status": "in_progress",
+      "attempt": 1,
       "createdAt": "2026-06-04T15:41:17.868Z",
-      "updatedAt": "2026-06-04T15:41:17.868Z"
+      "updatedAt": "2026-06-04T15:56:47.722Z",
+      "startedAt": "2026-06-04T15:56:47.722Z"
     }
   ],
-  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001 시그널 콕핏 재구성; G002-settings 시장·차트 탭 재구성 + SETTINGS 모달화; G003-ui UI 버그 일괄 수정 + 최종 게이트"
+  "claudeObjective": "Complete all ultragoal stories in .omc/ultragoal/goals.json: G001 시그널 콕핏 재구성; G002-settings 시장·차트 탭 재구성 + SETTINGS 모달화; G003-ui UI 버그 일괄 수정 + 최종 게이트",
+  "activeGoalId": "G003-ui"
 }
