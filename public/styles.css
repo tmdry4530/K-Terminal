@@ -34,15 +34,11 @@ a:hover { text-decoration: underline; }
 kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; background: #11202b; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; }
 
 #app-shell { height: 100vh; display: grid; grid-template-rows: var(--topbar-height) 60px 34px minmax(0, 1fr) 26px; }
-.topbar { display: grid; grid-template-columns: auto auto minmax(280px, 1fr) auto auto auto; align-items: center; gap: 8px; height: var(--topbar-height); padding: 0 10px; border-bottom: 1px solid var(--line); background: #020303; }
+.topbar { display: flex; align-items: center; gap: 8px; height: var(--topbar-height); padding: 0 10px; border-bottom: 1px solid var(--line); background: #020303; }
+.topbar-spacer { flex: 1; }
 .brand { font-weight: 800; letter-spacing: .08em; font-size: 13px; white-space: nowrap; }
-.global-menu { display: flex; gap: 4px; align-items: center; }
-.global-menu button, .subtabs button { text-transform: uppercase; font-weight: 700; font-size: 11px; background: transparent; border: 1px solid transparent; }
-.global-menu button:hover, .subtabs button:hover { background: #101822; }
-.command-box { height: 28px; display: grid; grid-template-columns: auto minmax(120px, 1fr); align-items: center; border: 1px solid var(--line-strong); background: #050708; }
-.command-box span { font-size: 11px; color: var(--text); padding: 0 8px; border-right: 1px solid var(--line); white-space: nowrap; }
-.command-box input { border: 0; height: 100%; background: transparent; outline: none; }
-.ai-button { background: var(--accent); border-color: #9a8cff; color: white; font-weight: 800; font-size: 11px; }
+.subtabs button { text-transform: uppercase; font-weight: 700; font-size: 11px; background: transparent; border: 1px solid transparent; }
+.subtabs button:hover { background: #101822; }
 .login-button { font-size: 11px; }
 .clock { font-size: 11px; color: var(--muted); white-space: nowrap; }
 
@@ -186,8 +182,6 @@ input, select, textarea { border-radius: 4px; transition: border-color .12s var(
 input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; }
 
 .brand::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); margin-right: 7px; vertical-align: middle; box-shadow: 0 0 8px rgba(127,104,255,.7); }
-.ai-button { background: linear-gradient(180deg, #8a76ff, #6a52f0); border-color: #9a8cff; box-shadow: 0 0 0 1px rgba(154,140,255,.35), 0 2px 10px rgba(127,104,255,.25); }
-.ai-button:hover { background: linear-gradient(180deg, #9684ff, #7461f3); border-color: #b3a8ff; }
 
 .subtabs button { border-radius: 4px 4px 0 0; transition: background .12s var(--ease), border-color .12s var(--ease); }
 .subtabs button.active { box-shadow: inset 0 -2px 0 var(--accent); }
@@ -233,10 +227,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); outline
 @media (max-width: 1100px) {
   #app-shell { height: auto; min-height: 100vh; overflow: visible; grid-template-rows: auto auto auto auto auto; }
   html, body { overflow: auto; height: auto; }
-  /* topbar wraps instead of a fixed grid; command box grows, menu/clock/login drop */
+  /* topbar wraps; clock/login drop on narrow */
   .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; height: auto; padding: 6px 10px; }
-  .command-box { flex: 1 1 200px; }
-  .global-menu, .clock, .login-button { display: none; }
+  .clock, .login-button { display: none; }
   /* every panel is visible and full-width; nothing is hidden on mobile */
   .workspace { display: flex; flex-direction: column; overflow: visible; }
   .splitter { display: none; }
@@ -253,9 +246,6 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); outline
 @media (max-width: 640px) {
   .subtabs { gap: 4px; padding: 6px; }
   .subtabs button { padding: 9px 13px; font-size: 12px; }
-  .command-box { height: 32px; }
-  .command-box span { display: none; } /* drop the "LLM <GO>" label to free width */
-  .ai-button { padding: 7px 10px; }
   button { padding: 7px 10px; } /* touch-friendly; dense widget actions stay smaller below */
   .widget-actions button { padding: 4px 8px; font-size: 10px; }
   .form-grid, .form-grid.compact { grid-template-columns: 1fr 1fr; }

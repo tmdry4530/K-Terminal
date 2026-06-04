@@ -16,7 +16,6 @@ const state = {
   priceMap: new Map(),
   stream: null,
   streamState: 'OFF',
-  cmdHistory: JSON.parse(localStorage.getItem('kt.cmdHistory') || '[]'),
   compareSymbols: [],
   compareSeries: [],
   signals: [],
@@ -27,23 +26,23 @@ const state = {
 const DEFAULT_VIEWS = {
   market: {
     left: ['market-pulse', 'watchlist', 'alerts'],
-    center: ['chart', 'crypto-monitor'],
+    center: ['chart'],
     right: ['data-sources', 'settings']
   },
   signals: {
     left: ['signals', 'positions'],
     center: ['execution-gate', 'chart'],
-    right: ['crypto-monitor', 'watchlist']
+    right: ['watchlist', 'alerts']
   },
   chart: {
     left: ['watchlist', 'market-pulse'],
     center: ['chart'],
-    right: ['crypto-monitor', 'alerts']
+    right: ['alerts', 'data-sources']
   },
   order: {
-    left: ['order-ticket', 'watchlist'],
+    left: ['watchlist', 'market-pulse'],
     center: ['order-history', 'chart'],
-    right: ['crypto-monitor', 'settings']
+    right: ['settings', 'data-sources']
   }
 };
 
@@ -52,11 +51,9 @@ const WIDGETS = {
   watchlist: { title: 'WATCHLIST', subtitle: '관심종목', render: renderWatchlist },
   'data-sources': { title: 'DATA SOURCES', subtitle: '실제/지연/API', render: renderDataSources },
   chart: { title: 'CHART', subtitle: '캔들/기술지표', render: renderChartWidget, big: true },
-  'order-ticket': { title: 'ORDER & EXECUTION', subtitle: 'Paper 기본', render: renderOrderTicket },
   'order-history': { title: 'ORDER HISTORY', subtitle: '모의 주문', render: renderOrderHistory },
   alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
   settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
-  'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
   'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true },
   positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
@@ -279,7 +276,7 @@ function moveWidget(widgetId, targetPanel, beforeWidgetId = null) {
 
 async function refreshWidget(widgetId) {
   if (widgetId === 'chart') await loadChart();
-  if (['market-pulse', 'watchlist', 'crypto-monitor'].includes(widgetId)) await loadSnapshot();
+  if (['market-pulse', 'watchlist'].includes(widgetId)) await loadSnapshot();
   renderWorkspace();
 }
 
@@ -306,7 +303,6 @@ async function loadMeta() {
     $('#login-open').style.display = '';
     $('#login-open').textContent = state.user ? state.user.email.split('@')[0].toUpperCase() : 'LOGIN';
   }
-  updateCommandList();
 }
 
 async function loadSnapshot() {
@@ -351,7 +347,6 @@ async function saveWatchlist(list) {
   }
   await loadWatchlistQuotes();
   renderWorkspace();
-  updateCommandList();
   startStream(); // resubscribe the live stream to the updated symbol set
 }
 
@@ -567,20 +562,6 @@ function renderDataSources(body) {
 
 function providerRow(name, configured, description) {
   return `<tr><td class="left">${escapeHtml(name)}</td><td>${statusBadge(configured ? '정상' : 'API 필요', description)}</td></tr>`;
-}
-
-function renderCryptoMonitor(body) {
-  const universe = state.meta?.cryptoUniverse || [];
-  const symbols = universe.map((item) => item.symbol);
-  body.innerHTML = `<div id="crypto-monitor-body">${skeletonBlock(5)}</div>`;
-  if (!symbols.length) { $('#crypto-monitor-body', body).textContent = '암호화폐 유니버스 정보 없음'; return; }
-  api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
-    $('#crypto-monitor-body', body).innerHTML = `
-      <table class="table"><thead><tr><th>Symbol</th><th>Px</th><th>Chg%</th><th>Ccy</th><th>Status</th></tr></thead><tbody>
-      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${chgText(q.changePercent)}</td><td>${escapeHtml(q.currency || '')}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
-      </tbody></table>`;
-    $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
-  }).catch((error) => { $('#crypto-monitor-body', body).textContent = `데이터 없음: ${error.message}`; });
 }
 
 // ---- Crypto Signal feed + auto-dom execution gate (observer/cockpit; no order initiation) ----
@@ -1035,40 +1016,6 @@ function requireLoginBody(body) {
   $('#login-inline', body)?.addEventListener('click', () => $('#login-dialog').showModal());
 }
 
-function renderOrderTicket(body) {
-  const logged = Boolean(state.user);
-  body.innerHTML = `
-    <div class="paper-banner">기본 모드: PAPER TRADING. 실거래와 모의거래가 혼동되지 않도록 분리됩니다.</div>
-    ${logged ? '' : '<div class="muted" style="margin-top:6px">주문 기록은 로그인 후 저장됩니다.</div>'}
-    <form id="order-form" class="stack" style="margin-top:8px">
-      <div class="form-grid compact">
-        <label>Symbol<input name="symbol" value="${escapeHtml(state.activeSymbol)}"></label>
-        <label>Side<select name="side"><option value="buy">BUY</option><option value="sell">SELL</option></select></label>
-        <label>Qty<input name="quantity" type="number" step="0.0001" value="1"></label>
-        <label>Type<select name="type"><option value="market">MARKET</option><option value="limit">LIMIT</option></select></label>
-        <label>Limit<input name="limitPrice" type="number" step="0.0001"></label>
-        <label>Mode<select name="mode"><option value="paper">PAPER</option><option value="live">LIVE DISABLED</option></select></label>
-      </div>
-      <label class="live-block">실거래 확인 문구<input name="acknowledgement" placeholder="LIVE_ORDER_CONFIRMED 없으면 live 거절"></label>
-      <button ${logged ? '' : 'disabled'}>SUBMIT PAPER ORDER</button>
-    </form>
-    <div id="order-result" class="muted" style="margin-top:8px"></div>`;
-  $('#order-form', body).addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!state.user) return;
-    const raw = Object.fromEntries(new FormData(event.currentTarget).entries());
-    const mode = raw.mode;
-    const order = { ...raw };
-    delete order.mode;
-    try {
-      const result = await api('/api/trading/order', { method: 'POST', body: { mode, order } });
-      $('#order-result', body).innerHTML = `${statusBadge(result.status || '정상')} ${escapeHtml(result.statusMessage || '')}`;
-    } catch (error) {
-      $('#order-result', body).innerHTML = `${statusBadge('오류')} ${escapeHtml(error.message)}`;
-    }
-  });
-}
-
 function renderOrderHistory(body) {
   if (!state.user) return requireLoginBody(body);
   body.innerHTML = '<div id="orders">로딩 중</div>';
@@ -1258,52 +1205,10 @@ function installTabs() {
     renderWorkspace();
     backgroundLoadForTab(state.activeTab);
   }));
-  $$('.global-menu button').forEach((button) => button.addEventListener('click', () => {
-    const map = { market: 'market', signals: 'signals', chart: 'chart', order: 'order' };
-    state.activeTab = map[button.dataset.global] || 'market';
-    updateTabs(); renderWorkspace(); backgroundLoadForTab(state.activeTab);
-  }));
 }
 
 function backgroundLoadForTab(tab) {
   if (tab === 'chart') loadChart().then(renderWorkspace).catch(() => {});
-}
-
-function pushCommandHistory(raw) {
-  state.cmdHistory = [raw, ...state.cmdHistory.filter((command) => command !== raw)].slice(0, 30);
-  localStorage.setItem('kt.cmdHistory', JSON.stringify(state.cmdHistory));
-  updateCommandList();
-}
-
-function updateCommandList() {
-  const list = $('#command-list');
-  if (!list) return;
-  const symbols = [...new Set([
-    ...currentWatchlist(),
-    ...(state.meta?.cryptoUniverse?.map((item) => item.symbol) || []),
-    'BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BNB-USD', 'ADA-USD', 'DOGE-USD', 'AVAX-USD', 'BTC-KRW', 'ETH-KRW'
-  ])];
-  const options = [...state.cmdHistory, ...symbols];
-  list.innerHTML = options.map((value) => `<option value="${escapeHtml(value)}"></option>`).join('');
-}
-
-function installCommand() {
-  updateCommandList();
-  $('#command-input').addEventListener('keydown', async (event) => {
-    if (event.key === 'ArrowUp' && !event.currentTarget.value.trim() && state.cmdHistory.length) {
-      event.currentTarget.value = state.cmdHistory[0]; // recall most recent; datalist browses the rest
-      event.preventDefault();
-      return;
-    }
-    if (event.key !== 'Enter') return;
-    const raw = event.currentTarget.value.trim();
-    if (!raw) return;
-    pushCommandHistory(raw);
-    const [cmd] = raw.split(/\s+/);
-    state.activeSymbol = cmd.toUpperCase(); state.activeTab = 'chart'; state.chart = null; await loadChart().catch(() => {});
-    event.currentTarget.value = '';
-    updateTabs(); renderWorkspace();
-  });
 }
 
 function installKeyboard() {
@@ -1312,8 +1217,7 @@ function installKeyboard() {
     const target = event.target;
     const tag = (target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable) return;
-    if (event.key === '/') { event.preventDefault(); $('#command-input').focus(); }
-    else if (event.key === '?') { event.preventDefault(); const dialog = $('#help-dialog'); if (dialog.open) dialog.close(); else dialog.showModal(); }
+    if (event.key === '?') { event.preventDefault(); const dialog = $('#help-dialog'); if (dialog.open) dialog.close(); else dialog.showModal(); }
     else if (event.key === 'r' || event.key === 'R') { loadSnapshot().then(renderWorkspace).catch(() => {}); backgroundLoadForTab(state.activeTab); }
     else if (/^[1-9]$/.test(event.key)) { const button = $$('#subtabs button')[Number(event.key) - 1]; if (button) button.click(); }
   });
@@ -1375,7 +1279,7 @@ function tickClock() {
 
 async function init() {
   tickClock(); setInterval(tickClock, 1000);
-  installTabs(); installCommand(); installAuth(); installSplitters(); installKeyboard();
+  installTabs(); installAuth(); installSplitters(); installKeyboard();
   let chartResizeTimer;
   window.addEventListener('resize', () => { clearTimeout(chartResizeTimer); chartResizeTimer = setTimeout(fitPriceChart, 150); });
   renderWorkspace();
