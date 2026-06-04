@@ -53,6 +53,18 @@ const WIDGETS = {
   positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
 };
 
+// Legacy widgets removed from the K Terminal surface. Keep filtering them so
+// stale localStorage/server layouts cannot resurrect the panels.
+const REMOVED_WIDGETS = new Set(['crypto-monitor', 'ai-assistant']);
+
+function isRenderableWidget(widgetId) {
+  return Boolean(WIDGETS[widgetId]) && !REMOVED_WIDGETS.has(widgetId);
+}
+
+function sanitizePanelWidgets(widgets = []) {
+  return widgets.filter(isRenderableWidget);
+}
+
 function loadLayout() {
   try {
     return JSON.parse(localStorage.getItem('kt.layout') || '{}');
@@ -160,15 +172,19 @@ function getViewLayout(tab = state.activeTab) {
   const saved = state.layout.tabs?.[tab];
   const base = DEFAULT_VIEWS[tab] || DEFAULT_VIEWS.market;
   return {
-    left: saved?.left || base.left,
-    center: saved?.center || base.center,
-    right: saved?.right || base.right
+    left: sanitizePanelWidgets(saved?.left || base.left),
+    center: sanitizePanelWidgets(saved?.center || base.center),
+    right: sanitizePanelWidgets(saved?.right || base.right)
   };
 }
 
 function setViewLayout(tab, next) {
   state.layout.tabs ||= {};
-  state.layout.tabs[tab] = next;
+  state.layout.tabs[tab] = {
+    left: sanitizePanelWidgets(next.left || []),
+    center: sanitizePanelWidgets(next.center || []),
+    right: sanitizePanelWidgets(next.right || [])
+  };
   saveLayout();
 }
 
