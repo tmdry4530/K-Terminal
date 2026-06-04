@@ -113,9 +113,13 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 .statusbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--line); background: #030405; padding: 0 8px; color: var(--muted); font-size: 11px; min-width: 0; }
 .statusbar > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.chart-wrap { width: 100%; min-height: 420px; display: grid; grid-template-rows: auto minmax(280px, 1fr) 70px 70px; gap: 6px; }
+.chart-wrap { position: relative; width: 100%; min-height: 420px; display: grid; grid-template-rows: auto minmax(280px, 1fr) 70px 70px; gap: 6px; }
 .chart-controls { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .chart-controls input { width: 95px; }
+/* Hover OHLC readout overlays the chart instead of sitting in the controls flex flow, so
+   toggling it on/off no longer wraps the controls row (which reflowed and jolted the chart). */
+#chart-readout { position: absolute; top: 40px; left: 10px; z-index: 5; pointer-events: none; white-space: nowrap; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; background: rgba(3, 5, 7, .9); border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; font-size: 11px; line-height: 1.4; }
+#chart-readout:empty { display: none; }
 .chart-svg { width: 100%; height: 100%; min-height: 260px; background: #030507; border: 1px solid var(--line); }
 .indicator-svg { width: 100%; height: 70px; background: #030507; border: 1px solid var(--line); }
 
