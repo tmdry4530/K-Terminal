@@ -4,7 +4,7 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const state = {
   meta: null,
   user: null,
-  activeTab: 'market',
+  activeTab: 'signals', // cockpit-first: land on the auto-dom signal/gate/positions pipeline
   activeSymbol: localStorage.getItem('kt.activeSymbol') || 'BTC-USD',
   range: localStorage.getItem('kt.range') || '1Y',
   interval: localStorage.getItem('kt.interval') || '1D',
@@ -30,9 +30,9 @@ const DEFAULT_VIEWS = {
     right: ['data-sources', 'settings']
   },
   signals: {
-    left: ['signals', 'positions'],
+    left: ['signals', 'watchlist'],
     center: ['execution-gate', 'chart'],
-    right: ['watchlist', 'alerts']
+    right: ['positions', 'alerts']
   },
   chart: {
     left: ['watchlist', 'market-pulse'],

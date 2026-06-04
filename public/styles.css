@@ -168,7 +168,7 @@ textarea.ai-input { width: 100%; min-height: 70px; resize: vertical; }
 .signal-row.signal-important td:nth-child(2) { color: #ffd98a; }
 @media (prefers-reduced-motion: reduce) { .gate-mode.err { animation: none; } }
 
-.evidence { display: grid; gap: 5px; }
+.evidence { display: grid; gap: 5px; max-height: 240px; overflow: auto; }
 .evidence-item { border-left: 2px solid var(--line-strong); padding: 3px 0 3px 8px; }
 .position-item { border-bottom: 1px solid var(--line); padding: 7px 0; display: grid; gap: 3px; }
 .pos-evidence-toggle { background: transparent; border: 0; color: #9dbdff; padding: 0; font-size: 11px; cursor: pointer; justify-self: start; }
