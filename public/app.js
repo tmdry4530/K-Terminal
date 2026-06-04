@@ -25,21 +25,32 @@ const state = {
 
 const DEFAULT_VIEWS = {
   market: {
-    left: ['market-pulse', 'watchlist', 'alerts'],
-    center: ['chart'],
-    right: ['data-sources', 'settings']
+    left: ['market-pulse'],
+    center: ['watchlist'],
+    right: ['data-sources']
   },
   signals: {
-    left: ['signals', 'positions'],
-    center: ['execution-gate', 'chart'],
-    right: ['watchlist', 'alerts']
+    left: ['signals'],
+    center: ['execution-gate'],
+    right: ['positions']
   },
   chart: {
-    left: ['watchlist', 'market-pulse'],
+    left: [],
     center: ['chart'],
-    right: ['alerts', 'data-sources', 'settings']
+    right: ['alerts']
   }
 };
+
+// Each tab owns its widgets exclusively — no widget may appear on multiple tabs.
+// 'settings' is modal-only (not in any tab).
+const TAB_WIDGETS = {
+  market: new Set(['market-pulse', 'watchlist', 'data-sources']),
+  signals: new Set(['signals', 'execution-gate', 'positions']),
+  chart: new Set(['chart', 'alerts'])
+};
+
+// Layout schema version — bump when DEFAULT_VIEWS changes to discard stale saved layouts.
+const LAYOUT_VERSION = 2;
 
 const WIDGETS = {
   'market-pulse': { title: 'MARKET PULSE', subtitle: '리스크/유동성', render: renderMarketPulse },
@@ -61,12 +72,20 @@ function isRenderableWidget(widgetId) {
   return Boolean(WIDGETS[widgetId]) && !REMOVED_WIDGETS.has(widgetId);
 }
 
-function sanitizePanelWidgets(widgets = []) {
-  return widgets.filter(isRenderableWidget);
+function sanitizePanelWidgets(widgets = [], tab = null) {
+  const allowed = tab ? TAB_WIDGETS[tab] : null;
+  return widgets.filter((id) => isRenderableWidget(id) && (!allowed || allowed.has(id)));
 }
 
 function loadLayout() {
   try {
+    const version = Number(localStorage.getItem('kt.layoutVersion') || '0');
+    if (version < LAYOUT_VERSION) {
+      // Stale layout — discard so DEFAULT_VIEWS takes effect cleanly.
+      localStorage.removeItem('kt.layout');
+      localStorage.setItem('kt.layoutVersion', String(LAYOUT_VERSION));
+      return {};
+    }
     return JSON.parse(localStorage.getItem('kt.layout') || '{}');
   } catch {
     return {};
@@ -75,6 +94,7 @@ function loadLayout() {
 
 function saveLayout() {
   localStorage.setItem('kt.layout', JSON.stringify(state.layout));
+  localStorage.setItem('kt.layoutVersion', String(LAYOUT_VERSION));
   if (state.user) {
     api('/api/settings', { method: 'PUT', body: { layout: state.layout } }).catch(() => {});
   }
@@ -171,19 +191,28 @@ function skeletonBlock(rows = 5) {
 function getViewLayout(tab = state.activeTab) {
   const saved = state.layout.tabs?.[tab];
   const base = DEFAULT_VIEWS[tab] || DEFAULT_VIEWS.market;
-  return {
-    left: sanitizePanelWidgets(saved?.left || base.left),
-    center: sanitizePanelWidgets(saved?.center || base.center),
-    right: sanitizePanelWidgets(saved?.right || base.right)
-  };
+  // Sanitize with tab context so server-side/stale layouts drop forbidden widgets.
+  const left = sanitizePanelWidgets(saved?.left ?? base.left, tab);
+  const center = sanitizePanelWidgets(saved?.center ?? base.center, tab);
+  const right = sanitizePanelWidgets(saved?.right ?? base.right, tab);
+  // If sanitisation emptied everything, fall back to the canonical default.
+  const anyWidgets = left.length || center.length || right.length;
+  if (!anyWidgets) {
+    return {
+      left: [...base.left],
+      center: [...base.center],
+      right: [...base.right]
+    };
+  }
+  return { left, center, right };
 }
 
 function setViewLayout(tab, next) {
   state.layout.tabs ||= {};
   state.layout.tabs[tab] = {
-    left: sanitizePanelWidgets(next.left || []),
-    center: sanitizePanelWidgets(next.center || []),
-    right: sanitizePanelWidgets(next.right || [])
+    left: sanitizePanelWidgets(next.left || [], tab),
+    center: sanitizePanelWidgets(next.center || [], tab),
+    right: sanitizePanelWidgets(next.right || [], tab)
   };
   saveLayout();
 }
@@ -197,6 +226,34 @@ function renderWorkspace() {
     panel.addEventListener('dragover', onPanelDragOver);
     panel.addEventListener('drop', onPanelDrop);
     for (const widgetId of layout[panelName]) panel.appendChild(createWidget(widgetId, panelName));
+  }
+  // Collapse empty side panels and their adjacent splitters so the layout fills cleanly.
+  const leftEmpty = layout.left.length === 0;
+  const rightEmpty = layout.right.length === 0;
+  const leftPanel = $('[data-panel="left"]');
+  const rightPanel = $('[data-panel="right"]');
+  const leftSplitter = $('[data-splitter="left"]');
+  const rightSplitter = $('[data-splitter="right"]');
+  leftPanel.style.display = leftEmpty ? 'none' : '';
+  if (leftSplitter) leftSplitter.style.display = leftEmpty ? 'none' : '';
+  rightPanel.style.display = rightEmpty ? 'none' : '';
+  if (rightSplitter) rightSplitter.style.display = rightEmpty ? 'none' : '';
+  // Rebuild the grid track list using only the non-empty columns, then assign
+  // explicit grid-column to the center panel so it spans the full remaining width.
+  const workspace = $('#workspace');
+  const centerPanel = $('[data-panel="center"]');
+  if (leftEmpty && rightEmpty) {
+    workspace.style.gridTemplateColumns = '1fr';
+    centerPanel.style.gridColumn = '1';
+  } else if (leftEmpty) {
+    workspace.style.gridTemplateColumns = `minmax(360px, 1fr) 6px var(--right-width)`;
+    centerPanel.style.gridColumn = '1';
+  } else if (rightEmpty) {
+    workspace.style.gridTemplateColumns = `var(--left-width) 6px minmax(360px, 1fr)`;
+    centerPanel.style.gridColumn = '3';
+  } else {
+    workspace.style.gridTemplateColumns = `var(--left-width) 6px minmax(360px, 1fr) 6px var(--right-width)`;
+    centerPanel.style.gridColumn = '';
   }
   restorePanelWidths();
   requestAnimationFrame(fitPriceChart); // size the chart to its laid-out height (no letterbox)
@@ -304,11 +361,14 @@ async function loadMeta() {
   state.meta = await api('/api/meta');
   state.user = state.meta.user;
   if (state.user?.settings?.defaultSymbol) state.activeSymbol = state.user.settings.defaultSymbol;
-  if (state.user?.settings?.layout && !localStorage.getItem('kt.layout')) {
+  const localVersion = Number(localStorage.getItem('kt.layoutVersion') || '0');
+  if (state.user?.settings?.layout && !localStorage.getItem('kt.layout') && localVersion >= LAYOUT_VERSION) {
+    // Only accept server layout when local version is current (no stale migration in progress).
     state.layout = state.user.settings.layout;
   }
   if (state.meta?.singleUser) {
     $('#login-open').style.display = 'none'; // no login concept in single-user mode
+    $('#settings-open').style.display = ''; // settings gear always visible
   } else {
     $('#login-open').style.display = '';
     $('#login-open').textContent = state.user ? state.user.email.split('@')[0].toUpperCase() : 'LOGIN';
@@ -600,9 +660,17 @@ function selectSignal(signalId) {
   state.activeSignal = signal;
   if (signal.symbol) {
     const base = String(signal.symbol).replace(/USDT$|USD$|PERP$/i, ''); // BTCUSDT -> BTC-USD (USDT≈USD)
-    if (base) { state.activeSymbol = `${base}-USD`; state.chart = null; loadChart().catch(() => {}); }
+    if (base) {
+      state.activeSymbol = `${base}-USD`;
+      localStorage.setItem('kt.activeSymbol', state.activeSymbol);
+      state.chart = null;
+    }
   }
+  // Chart widget lives on the chart tab — switch there and load.
+  state.activeTab = 'chart';
+  updateTabs();
   renderWorkspace();
+  setTimeout(() => loadChart().then(renderWorkspace).catch(() => {}), 0);
 }
 
 function renderSignals(body) {
@@ -1221,6 +1289,15 @@ function installKeyboard() {
 
 function installAuth() {
   $('#login-open').addEventListener('click', () => $('#login-dialog').showModal());
+  $('#settings-open').addEventListener('click', () => {
+    const content = $('#settings-dialog-content');
+    content.innerHTML = '';
+    const body = document.createElement('div');
+    body.className = 'widget-body';
+    content.appendChild(body);
+    renderSettings(body);
+    $('#settings-dialog').showModal();
+  });
   $('#login-submit').addEventListener('click', async () => authSubmit('/api/auth/login'));
   $('#register-submit').addEventListener('click', async () => authSubmit('/api/auth/register'));
   $('#logout-submit').addEventListener('click', async () => {
