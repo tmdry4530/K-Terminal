@@ -11,9 +11,6 @@ const state = {
   snapshot: null,
   chart: null,
   news: null,
-  sec: null,
-  dart: null,
-  options: null,
   portfolio: null,
   watchlistQuotes: null,
   chat: [],
@@ -34,37 +31,22 @@ const DEFAULT_VIEWS = {
   market: {
     left: ['market-pulse', 'watchlist', 'alerts'],
     center: ['chart', 'crypto-monitor', 'news'],
-    right: ['ai-assistant', 'order-ticket', 'data-sources']
+    right: ['ai-assistant', 'data-sources']
   },
   signals: {
     left: ['signals', 'positions'],
     center: ['execution-gate', 'chart'],
     right: ['ai-assistant', 'watchlist']
   },
-  monitor: {
-    left: ['watchlist', 'market-pulse'],
-    center: ['crypto-monitor', 'chart'],
-    right: ['news', 'ai-assistant', 'data-sources']
-  },
   chart: {
     left: ['watchlist', 'market-pulse'],
     center: ['chart'],
-    right: ['ai-assistant', 'alerts']
-  },
-  news: {
-    left: ['watchlist', 'market-pulse'],
-    center: ['news'],
-    right: ['ai-assistant', 'crypto-monitor', 'data-sources']
+    right: ['ai-assistant', 'crypto-monitor', 'alerts']
   },
   portfolio: {
     left: ['portfolio-summary', 'portfolio-risk'],
     center: ['portfolio-table', 'portfolio-graph'],
-    right: ['order-ticket', 'ai-assistant', 'alerts']
-  },
-  order: {
-    left: ['watchlist', 'portfolio-summary'],
-    center: ['order-ticket', 'order-history'],
-    right: ['execution-gate', 'alerts', 'settings']
+    right: ['order-ticket', 'order-history', 'settings']
   },
   ai: {
     left: ['market-pulse', 'watchlist'],
@@ -79,22 +61,16 @@ const WIDGETS = {
   'data-sources': { title: 'DATA SOURCES', subtitle: '실제/지연/API', render: renderDataSources },
   chart: { title: 'CHART', subtitle: '캔들/기술지표', render: renderChartWidget, big: true },
   news: { title: 'NEWS & TRANSLATION', subtitle: '원문/번역/감성', render: renderNews, big: true },
-  'sec-filings': { title: 'SEC FILINGS', subtitle: 'EDGAR', render: renderSecFilings },
-  'dart-filings': { title: 'DART FILINGS', subtitle: 'OpenDART', render: renderDartFilings },
   'portfolio-summary': { title: 'PORTFOLIO', subtitle: '요약', render: renderPortfolioSummary },
   'portfolio-table': { title: 'HOLDINGS', subtitle: '수동 입력/평가', render: renderPortfolioTable, big: true },
   'portfolio-graph': { title: 'PORTFOLIO GRAPH', subtitle: '비중 크게 보기', render: renderPortfolioGraph, big: true },
   'portfolio-risk': { title: 'PORTFOLIO RISK', subtitle: '섹터/국가/통화', render: renderPortfolioRisk },
-  'options-chain': { title: 'OPTIONS', subtitle: '옵션 체인', render: renderOptionsChain, big: true },
   'order-ticket': { title: 'ORDER & EXECUTION', subtitle: 'Paper 기본', render: renderOrderTicket },
   'order-history': { title: 'ORDER HISTORY', subtitle: '모의 주문', render: renderOrderHistory },
   alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
   'ai-assistant': { title: 'AI ASSISTANT', subtitle: 'Gemini/로컬', render: renderAiAssistant, big: true },
   settings: { title: 'SETTINGS', subtitle: '사용자/API/레이아웃', render: renderSettings },
-  'rates-commodities': { title: 'RATES / FX / COMMODITIES', subtitle: '금리/환율/원자재', render: renderRatesCommodities },
-  'monitor-grid': { title: 'MARKET MONITOR', subtitle: '주식/ETF/한국', render: renderMonitorGrid },
   'crypto-monitor': { title: 'CRYPTO MONITOR', subtitle: 'BTC/ETH/SOL', render: renderCryptoMonitor },
-  calendar: { title: 'CALENDAR', subtitle: '실적/경제', render: renderCalendar },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
   'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true },
   positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
@@ -318,11 +294,8 @@ function moveWidget(widgetId, targetPanel, beforeWidgetId = null) {
 async function refreshWidget(widgetId) {
   if (widgetId === 'chart') await loadChart();
   if (widgetId === 'news') await loadNews();
-  if (widgetId === 'sec-filings') await loadSec();
-  if (widgetId === 'dart-filings') await loadDart();
-  if (widgetId === 'options-chain') await loadOptions();
   if (widgetId.startsWith('portfolio')) await loadPortfolio();
-  if (['market-pulse', 'watchlist', 'rates-commodities', 'monitor-grid'].includes(widgetId)) await loadSnapshot();
+  if (['market-pulse', 'watchlist', 'crypto-monitor'].includes(widgetId)) await loadSnapshot();
   renderWorkspace();
 }
 
@@ -374,18 +347,6 @@ async function loadChart() {
 
 async function loadNews() {
   state.news = await api(`/api/news?symbol=${encodeURIComponent(state.activeSymbol)}`);
-}
-
-async function loadSec() {
-  state.sec = await api(`/api/filings/sec?symbol=${encodeURIComponent(state.activeSymbol)}`);
-}
-
-async function loadDart(input = '005930') {
-  state.dart = await api(`/api/filings/dart?symbol=${encodeURIComponent(input)}`);
-}
-
-async function loadOptions() {
-  state.options = await api(`/api/options?symbol=${encodeURIComponent(state.activeSymbol)}`);
 }
 
 async function loadPortfolio() {
@@ -617,12 +578,10 @@ function renderDataSources(body) {
       <div class="metric"><div class="k">Market Provider</div><div class="v">${escapeHtml(providers.marketDataProvider || 'auto')}</div></div>
       <table class="table">
         <tbody>
-          ${providerRow('Finnhub', providers.finnhub, '미국 주식/뉴스/실적. API 키 필요')}
-          ${providerRow('Twelve Data', providers.twelveData, '주식/ETF/FX/원자재. API 키 필요')}
-          ${providerRow('Polygon', providers.polygon, '실시간/옵션 권장. API 키 필요')}
-          ${providerRow('SEC EDGAR', providers.sec, '공개 API. User-Agent 필요')}
-          ${providerRow('OpenDART', providers.dart, '한국 공시. API 키 필요')}
-          ${providerRow('FRED', providers.fred, '미국 경제지표 릴리즈 일정. 무료 키')}
+          ${providerRow('Binance', true, '암호화폐 시세/차트. 공개 API')}
+          ${providerRow('CoinGecko', true, '암호화폐 fallback. 공개 API')}
+          ${providerRow('Finnhub', providers.finnhub, '암호화폐 뉴스. API 키 필요')}
+          ${providerRow('Twelve Data', providers.twelveData, '시세 fallback. API 키 필요')}
           ${providerRow('Gemini', providers.gemini, '번역/AI 분석. 선택 연결')}
           ${providerRow('Alpaca Paper', providers.alpacaPaper, 'Paper 주문 API')}
         </tbody>
@@ -634,26 +593,6 @@ function renderDataSources(body) {
 
 function providerRow(name, configured, description) {
   return `<tr><td class="left">${escapeHtml(name)}</td><td>${statusBadge(configured ? '정상' : 'API 필요', description)}</td></tr>`;
-}
-
-function renderRatesCommodities(body) {
-  const wanted = ['^TNX', 'KRW=X', 'GC=F', 'CL=F', '^VIX'];
-  const quotes = (state.snapshot?.quotes || []).filter((q) => wanted.includes(q.symbol));
-  body.innerHTML = `<table class="table"><thead><tr><th>Asset</th><th>Value</th><th>Chg%</th><th>Status</th></tr></thead><tbody>
-    ${quotes.map((q) => `<tr><td class="left">${escapeHtml(labelFor(q.symbol))}</td><td>${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}">${pct(q.changePercent)}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('') || '<tr><td>데이터 없음</td><td></td><td></td><td></td></tr>'}
-  </tbody></table>`;
-}
-
-function renderMonitorGrid(body) {
-  const symbols = state.meta?.cryptoUniverse?.map((item) => item.symbol) || ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BNB-USD', 'ADA-USD', 'DOGE-USD', 'AVAX-USD', 'BTC-KRW', 'ETH-KRW'];
-  body.innerHTML = `<div id="monitor-grid-body">${skeletonBlock(6)}</div>`;
-  api(`/api/market/snapshot?symbols=${encodeURIComponent(symbols.join(','))}`).then((snapshot) => {
-    $('#monitor-grid-body', body).innerHTML = `
-      <table class="table"><thead><tr><th>Symbol</th><th>Px</th><th>Chg</th><th>Vol</th><th>Status</th></tr></thead><tbody>
-      ${snapshot.quotes.map((q) => `<tr><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(q.symbol)}">${escapeHtml(q.symbol)}</button></td><td data-live-price="${escapeHtml(q.symbol)}">${fmt(q.price)}</td><td class="${clsChange(q.changePercent)}" data-live-chg="${escapeHtml(q.symbol)}">${chgText(q.changePercent)}</td><td>${fmt(q.volume, 0)}</td><td>${statusBadge(q.status, q.statusMessage)}</td></tr>`).join('')}
-      </tbody></table>`;
-    $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
-  }).catch((error) => { $('#monitor-grid-body', body).textContent = `데이터 없음: ${error.message}`; });
 }
 
 function renderCryptoMonitor(body) {
@@ -668,28 +607,6 @@ function renderCryptoMonitor(body) {
       </tbody></table>`;
     $$('.symbol-link', body).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
   }).catch((error) => { $('#crypto-monitor-body', body).textContent = `데이터 없음: ${error.message}`; });
-}
-
-function renderCalendar(body) {
-  body.innerHTML = `<div id="cal-earn">${skeletonBlock(4)}</div><div id="cal-econ" style="margin-top:10px">${skeletonBlock(3)}</div>`;
-  const watch = new Set(currentWatchlist());
-  api('/api/calendar/earnings').then((data) => {
-    const rows = (data.events || []).slice(0, 60);
-    $('#cal-earn', body).innerHTML = `
-      <div class="row gap" style="justify-content:space-between"><strong>EARNINGS</strong>${statusBadge(data.status, data.statusMessage)}</div>
-      <div class="scroll" style="max-height:240px; margin-top:4px"><table class="table"><thead><tr><th>Date</th><th>Symbol</th><th>When</th><th>EPS Est</th><th>EPS Act</th></tr></thead><tbody>
-      ${rows.map((event) => `<tr class="${watch.has(event.symbol) ? 'cal-watch' : ''}"><td class="left">${escapeHtml(event.date || '')}</td><td class="left"><button class="symbol-link" data-symbol="${escapeHtml(event.symbol)}">${escapeHtml(event.symbol)}</button></td><td>${escapeHtml(event.hour || '')}</td><td>${fmt(event.epsEstimate)}</td><td>${fmt(event.epsActual)}</td></tr>`).join('') || '<tr><td>데이터 없음</td><td colspan="4"></td></tr>'}
-      </tbody></table></div>`;
-    $$('.symbol-link', $('#cal-earn', body)).forEach((button) => button.addEventListener('click', () => selectSymbol(button.dataset.symbol)));
-  }).catch((error) => { $('#cal-earn', body).textContent = `실적 캘린더 오류: ${error.message}`; });
-  api('/api/calendar/economic').then((data) => {
-    const rows = (data.events || []).slice(0, 40);
-    $('#cal-econ', body).innerHTML = `
-      <div class="row gap" style="justify-content:space-between"><strong>ECONOMIC (US)</strong>${statusBadge(data.status, data.statusMessage)}</div>
-      <div class="scroll" style="max-height:200px; margin-top:4px"><table class="table"><thead><tr><th>Date</th><th>Release</th></tr></thead><tbody>
-      ${rows.map((event) => `<tr><td class="left">${escapeHtml(event.date || '')}</td><td class="left">${escapeHtml(event.name || '')}</td></tr>`).join('') || `<tr><td>${escapeHtml(data.status)}</td><td>${escapeHtml(data.statusMessage || '')}</td></tr>`}
-      </tbody></table></div>`;
-  }).catch((error) => { $('#cal-econ', body).textContent = `경제 캘린더 오류: ${error.message}`; });
 }
 
 // ---- Crypto Signal feed + auto-dom execution gate (observer/cockpit; no order initiation) ----
@@ -1168,32 +1085,6 @@ function renderNews(body, widgetId, options = {}) {
     </article>`).join('') || `<div class="muted">${escapeHtml(state.news.statusMessage || '뉴스 데이터 없음')}</div>`;
 }
 
-function renderSecFilings(body) {
-  body.innerHTML = `
-    <div class="row gap"><input id="sec-symbol" value="${escapeHtml(state.activeSymbol)}"/><button id="sec-load">LOAD</button><span>${state.sec ? statusBadge(state.sec.status, state.sec.statusMessage) : statusBadge('데이터 없음')}</span></div>
-    <div id="sec-list" class="scroll" style="margin-top:6px"></div>`;
-  $('#sec-load', body).addEventListener('click', async () => { state.activeSymbol = $('#sec-symbol', body).value.trim().toUpperCase() || state.activeSymbol; await loadSec(); renderWorkspace(); });
-  const list = $('#sec-list', body);
-  if (!state.sec || state.sec.symbol !== state.activeSymbol) {
-    loadSec().then(renderWorkspace).catch((error) => { list.textContent = `SEC 데이터 없음: ${error.message}`; });
-    return;
-  }
-  list.innerHTML = (state.sec.filings || []).map((f) => `<div class="filing-item"><div><strong>${escapeHtml(f.form)}</strong> ${escapeHtml(f.description || '')}</div><div class="muted">${escapeHtml(f.filingDate || '')} / ${escapeHtml(f.reportDate || '')}</div>${f.url ? extLink(f.url, '원문') : ''}</div>`).join('') || `<div class="muted">${escapeHtml(state.sec.statusMessage || 'SEC 데이터 없음')}</div>`;
-}
-
-function renderDartFilings(body) {
-  body.innerHTML = `
-    <div class="row gap"><input id="dart-symbol" value="005930"/><button id="dart-load">LOAD</button><span>${state.dart ? statusBadge(state.dart.status, state.dart.statusMessage) : statusBadge('API 필요')}</span></div>
-    <div id="dart-list" class="scroll" style="margin-top:6px"></div>`;
-  $('#dart-load', body).addEventListener('click', async () => { await loadDart($('#dart-symbol', body).value.trim()); renderWorkspace(); });
-  const list = $('#dart-list', body);
-  if (!state.dart) {
-    loadDart().then(renderWorkspace).catch((error) => { list.textContent = `DART 데이터 없음: ${error.message}`; });
-    return;
-  }
-  list.innerHTML = (state.dart.filings || []).map((f) => `<div class="filing-item"><div><strong>${escapeHtml(f.reportName)}</strong></div><div class="muted">${escapeHtml(f.corpName || '')} / ${escapeHtml(f.filingDate || '')} / ${escapeHtml(f.submitter || '')}</div>${f.url ? extLink(f.url, 'DART 원문') : ''}</div>`).join('') || `<div class="muted">${escapeHtml(state.dart.statusMessage || 'DART 데이터 없음')}</div>`;
-}
-
 function requireLoginBody(body) {
   body.innerHTML = `<div class="stack"><div class="badge warn">로그인 필요</div><div class="muted">포트폴리오, 사용자 API 키, 레이아웃 저장은 로그인 후 사용 가능합니다.</div><button id="login-inline">LOGIN</button></div>`;
   $('#login-inline', body)?.addEventListener('click', () => $('#login-dialog').showModal());
@@ -1282,16 +1173,6 @@ function renderPortfolioRisk(body) {
   }).join('') || '<div class="muted">데이터 없음</div>'}</div>`;
   const rebalance = (state.portfolio.holdings || []).filter((h) => h.rebalanceNeeded);
   body.innerHTML = `<div class="stack">${exposureHtml('Sector', state.portfolio.exposure?.sector)}${exposureHtml('Country', state.portfolio.exposure?.country)}${exposureHtml('Currency', state.portfolio.exposure?.currency)}<div><strong>Rebalance</strong>${rebalance.map((h) => `<div class="muted">${escapeHtml(h.symbol)} ${signed(h.rebalanceDeltaValue)}</div>`).join('') || '<div class="muted">임계치 초과 없음 / 목표 비중 데이터 없음</div>'}</div></div>`;
-}
-
-function renderOptionsChain(body, widgetId, options = {}) {
-  body.innerHTML = `<div class="row gap"><input id="option-symbol" value="${escapeHtml(state.activeSymbol)}"><button id="option-load">LOAD</button><span>${state.options ? statusBadge(state.options.status, state.options.statusMessage) : statusBadge('데이터 없음')}</span></div><div id="option-list" class="scroll" style="max-height:${options.big ? '690px' : 'none'}; margin-top:6px"></div>`;
-  $('#option-load', body).addEventListener('click', async () => { state.activeSymbol = $('#option-symbol', body).value.trim().toUpperCase() || state.activeSymbol; await loadOptions(); renderWorkspace(); });
-  const list = $('#option-list', body);
-  if (!state.options || state.options.symbol !== state.activeSymbol.replace(/\.(KS|KQ)$/u, '')) { loadOptions().then(renderWorkspace).catch((error) => { list.textContent = `옵션 데이터 없음: ${error.message}`; }); return; }
-  list.innerHTML = `<table class="table"><thead><tr><th>Contract</th><th>Exp</th><th>Type</th><th>Strike</th><th>Last</th><th>Bid</th><th>Ask</th><th>Vol</th><th>OI</th><th>IV</th></tr></thead><tbody>
-    ${(state.options.options || []).map((o) => `<tr><td class="left">${escapeHtml(o.contractSymbol)}</td><td>${escapeHtml(o.expiration || '')}</td><td>${escapeHtml(o.type)}</td><td>${fmt(o.strike)}</td><td>${fmt(o.lastPrice)}</td><td>${fmt(o.bid)}</td><td>${fmt(o.ask)}</td><td>${fmt(o.volume, 0)}</td><td>${fmt(o.openInterest, 0)}</td><td>${pct((o.impliedVolatility || 0) * 100)}</td></tr>`).join('') || '<tr><td>옵션 데이터 없음</td><td colspan="9"></td></tr>'}
-  </tbody></table>`;
 }
 
 function renderOrderTicket(body) {
@@ -1533,7 +1414,7 @@ function renderSettings(body) {
 
 async function selectSymbol(symbol) {
   state.activeSymbol = symbol;
-  state.chart = null; state.news = null; state.sec = null; state.options = null;
+  state.chart = null; state.news = null;
   localStorage.setItem('kt.activeSymbol', symbol);
   state.activeTab = 'chart';
   updateTabs();
@@ -1553,7 +1434,7 @@ function installTabs() {
     backgroundLoadForTab(state.activeTab);
   }));
   $$('.global-menu button').forEach((button) => button.addEventListener('click', () => {
-    const map = { markets: 'market', portfolio: 'portfolio', research: 'news', tools: 'monitor', ai: 'ai' };
+    const map = { markets: 'market', portfolio: 'portfolio', research: 'signals', tools: 'chart', ai: 'ai' };
     state.activeTab = map[button.dataset.global] || 'market';
     updateTabs(); renderWorkspace(); backgroundLoadForTab(state.activeTab);
   }));
@@ -1561,7 +1442,6 @@ function installTabs() {
 
 function backgroundLoadForTab(tab) {
   if (tab === 'chart') loadChart().then(renderWorkspace).catch(() => {});
-  if (tab === 'news') loadNews().then(renderWorkspace).catch(() => {});
   if (tab === 'portfolio') loadPortfolio().then(renderWorkspace).catch(() => {});
 }
 
@@ -1598,7 +1478,7 @@ function installCommand() {
     pushCommandHistory(raw);
     const [cmd, arg] = raw.split(/\s+/);
     const upper = cmd.toUpperCase();
-    if (upper === 'NEWS') { state.activeSymbol = (arg || state.activeSymbol).toUpperCase(); state.activeTab = 'news'; await loadNews().catch(() => {}); }
+    if (upper === 'NEWS') { state.activeSymbol = (arg || state.activeSymbol).toUpperCase(); state.activeTab = 'market'; state.news = null; await loadNews().catch(() => {}); }
     else if (upper === 'PORT') { state.activeTab = 'portfolio'; await loadPortfolio().catch(() => {}); }
     else if (upper === 'AI') { state.activeTab = 'ai'; state.chat.push({ role: 'user', text: raw.slice(2).trim(), time: new Date().toISOString() }); }
     else { state.activeSymbol = upper; state.activeTab = 'chart'; state.chart = null; await loadChart().catch(() => {}); }

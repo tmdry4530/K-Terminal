@@ -58,7 +58,7 @@ docker compose up --build
 ## 주요 화면
 
 - 상단: 전역 메뉴, 명령창, AI 버튼, 로그인, 지수 스트립
-- 내부 탭: 시장, 모니터, 차트, 뉴스, 포트폴리오, 옵션, 주문, AI
+- 내부 탭: 시장, 시그널, 차트, 포트폴리오, AI
 - 패널: 좌측/중앙/우측 폭 조절 가능
 - 위젯: 드래그앤드롭 순서 변경, CSS resize 기반 크기 조절, 사용자별 레이아웃 저장
 - 차트: 캔들, 거래량, MA20, MA50, Bollinger Band, RSI, MACD
@@ -96,9 +96,11 @@ docker compose up --build
 ```text
 src/
   server.js       HTTP API + 정적 파일 서버
-  marketData.js   Yahoo fallback, Finnhub, Twelve Data quote/chart, 옵션
+  cryptoMarket.js 암호화폐 시세/차트 (Binance/CoinGecko/Coinbase)
+  marketData.js   시세/차트 fallback 라우팅
+  autodom.js      auto-dom 브릿지 프록시 + 시그널/체결 인박스 리더
+  stream.js       SSE 멀티플렉스 (시세 + 시그널)
   news.js         뉴스, 감성, 중요도, 번역 연결
-  filings.js      SEC EDGAR, OpenDART
   portfolio.js    보유종목 평가/비중/리밸런싱
   brokers.js      Paper Trading, Alpaca Paper, live 주문 안전 차단
   store.js        파일 기반 사용자/세션/설정/API 키/포트폴리오 저장
