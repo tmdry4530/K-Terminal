@@ -1154,32 +1154,38 @@ function renderAlerts(body) {
 
 function renderSettings(body) {
   const providers = ['finnhub', 'twelvedata'];
+  // Rendered into the header settings dialog (a method="dialog" form), so every button is
+  // type="button" — a default submit button would close the dialog on click. API-key rows are
+  // plain divs (not nested <form>s, which are invalid inside the dialog form).
   body.innerHTML = `
     <div class="stack">
       <div>${state.user ? `로그인: ${escapeHtml(state.user.email)}` : statusBadge('로그인 필요')}</div>
       <label>기본 종목<input id="default-symbol" value="${escapeHtml(state.user?.settings?.defaultSymbol || state.activeSymbol)}"></label>
-      <button id="save-default" ${state.user ? '' : 'disabled'}>SAVE DEFAULT</button>
+      <button id="save-default" type="button" ${state.user ? '' : 'disabled'}>SAVE DEFAULT</button>
       <div class="muted">API 키는 서버 파일 DB에 AES-GCM으로 암호화 저장됩니다. 운영 서버에서는 SECRET_KEY를 강한 난수로 고정하고 백업/권한 관리를 분리하십시오.</div>
-      ${providers.map((p) => `<form class="row gap api-key-form" data-provider="${p}"><input type="password" autocomplete="off" placeholder="${p.toUpperCase()} API KEY"/><button ${state.user ? '' : 'disabled'}>SAVE</button><button type="button" class="delete-key" ${state.user ? '' : 'disabled'}>DEL</button><span>${statusBadge(state.user?.apiKeyProviders?.[p] ? '정상' : 'API 필요')}</span></form>`).join('')}
-      <button id="reset-layout">RESET LAYOUT</button>
-      <button id="save-layout" ${state.user ? '' : 'disabled'}>SAVE LAYOUT TO ACCOUNT</button>
+      ${providers.map((p) => `<div class="row gap api-key-form" data-provider="${p}"><input type="password" autocomplete="off" placeholder="${p.toUpperCase()} API KEY"/><button type="button" class="save-key" ${state.user ? '' : 'disabled'}>SAVE</button><button type="button" class="delete-key" ${state.user ? '' : 'disabled'}>DEL</button><span>${statusBadge(state.user?.apiKeyProviders?.[p] ? '정상' : 'API 필요')}</span></div>`).join('')}
+      <button id="reset-layout" type="button">RESET LAYOUT</button>
+      <button id="save-layout" type="button" ${state.user ? '' : 'disabled'}>SAVE LAYOUT TO ACCOUNT</button>
     </div>`;
   $('#save-default', body).addEventListener('click', async () => {
     const defaultSymbol = $('#default-symbol', body).value.trim().toUpperCase();
     const result = await api('/api/settings', { method: 'PUT', body: { defaultSymbol } });
     state.user = result.user; state.activeSymbol = defaultSymbol; renderWorkspace();
   });
-  $$('.api-key-form', body).forEach((form) => {
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const value = $('input', form).value.trim();
+  $$('.api-key-form', body).forEach((row) => {
+    const provider = row.dataset.provider;
+    const input = $('input', row);
+    const save = async () => {
+      const value = input.value.trim();
       if (!value) return;
-      const result = await api('/api/settings/api-key', { method: 'PUT', body: { provider: form.dataset.provider, value } });
-      state.user = result.user; await loadMeta(); renderWorkspace();
-    });
-    $('.delete-key', form).addEventListener('click', async () => {
-      const result = await api(`/api/settings/api-key?provider=${encodeURIComponent(form.dataset.provider)}`, { method: 'DELETE' });
-      state.user = result.user; await loadMeta(); renderWorkspace();
+      const result = await api('/api/settings/api-key', { method: 'PUT', body: { provider, value } });
+      state.user = result.user; await loadMeta(); renderWorkspace(); renderSettings(body); // refresh modal badges
+    };
+    $('.save-key', row).addEventListener('click', save);
+    input.addEventListener('keydown', (event) => { if (event.key === 'Enter') save(); });
+    $('.delete-key', row).addEventListener('click', async () => {
+      const result = await api(`/api/settings/api-key?provider=${encodeURIComponent(provider)}`, { method: 'DELETE' });
+      state.user = result.user; await loadMeta(); renderWorkspace(); renderSettings(body); // refresh modal badges
     });
   });
   $('#reset-layout', body).addEventListener('click', () => { state.layout = {}; localStorage.removeItem('kt.layout'); renderWorkspace(); });
