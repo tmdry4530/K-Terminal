@@ -85,6 +85,7 @@ export async function notifyImpactNewsPicks(signals, options = {}) {
   const enabled = options.enabled ?? config.telegramImpactNewsNotify;
   const target = options.target ?? config.telegramImpactNewsTarget;
   const hermesBin = options.hermesBin ?? config.hermesBin;
+  const hermesProfile = options.hermesProfile ?? config.hermesProfile;
   const statePath = resolvePath(options.statePath ?? config.telegramImpactNewsStatePath);
   if (!enabled || !target) return { enabled: false, sent: 0 };
 
@@ -94,7 +95,8 @@ export async function notifyImpactNewsPicks(signals, options = {}) {
   for (const pick of picks) {
     const key = notificationKey(pick);
     const message = formatImpactNewsMessage(pick);
-    await execFileAsync(hermesBin, ['send', '--quiet', '--to', target, message], { timeout: 15000, maxBuffer: 1024 * 64 });
+    const args = hermesProfile ? ['--profile', hermesProfile, 'send'] : ['send'];
+    await execFileAsync(hermesBin, [...args, '--quiet', '--to', target, message], { timeout: 15000, maxBuffer: 1024 * 64 });
     notified.add(key);
     sent += 1;
   }

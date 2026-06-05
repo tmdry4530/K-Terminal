@@ -68,7 +68,8 @@ export const config = Object.freeze({
   telegramImpactNewsNotify: bool(process.env.TELEGRAM_IMPACT_NEWS_NOTIFY, false),
   telegramImpactNewsTarget: process.env.TELEGRAM_IMPACT_NEWS_TARGET || '',
   telegramImpactNewsStatePath: process.env.TELEGRAM_IMPACT_NEWS_STATE_PATH || './data/impact-news-notified.json',
-  hermesBin: process.env.HERMES_BIN || 'hermes'
+  hermesBin: process.env.HERMES_BIN || 'hermes',
+  hermesProfile: process.env.HERMES_PROFILE || ''
 });
 
 // In production, refuse to boot with a weak/known SECRET_KEY — it encrypts every stored API
