@@ -49,7 +49,7 @@ const WIDGETS = {
   alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
   'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true },
-  'news-recommendations': { title: 'IMPORTANT NEWS + COIN PICKS', subtitle: '뉴스 기반 추천 3개', render: renderNewsRecommendations, big: true },
+  'news-recommendations': { title: 'LIVE IMPACT NEWS + COIN PICKS', subtitle: '실시간 고파급 뉴스 최대 3개', render: renderNewsRecommendations, big: true },
   positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
 };
 
@@ -739,9 +739,48 @@ function renderExecutionGate(body) {
 }
 
 const CRITICAL_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'exchange_delisting_or_systemic_exchange_failure', 'war_level_global_macro_shock', 'major_regulatory_action']);
+const HIGH_IMPACT_NEWS_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'exchange_delisting_or_systemic_exchange_failure', 'war_level_global_macro_shock']);
+const LIVE_NEWS_MAX_AGE_HOURS = 24;
 
 function isImportantSignal(s) {
   return (s.urgencyScore != null && s.urgencyScore >= 0.7) || (s.confidenceScore != null && s.confidenceScore >= 0.85) || s.verificationState === 'VERIFIED' || CRITICAL_EVENTS.has(s.eventType);
+}
+
+function parsedSignalTime(signal) {
+  const candidates = [signal?.receivedAt, signal?.generatedAt, signal?.signal?.generated_at, signal?.signal?.first_detected_at];
+  for (const value of candidates) {
+    const time = Date.parse(value || '');
+    if (Number.isFinite(time)) return time;
+  }
+  return null;
+}
+
+function signalAgeHours(signal) {
+  const time = parsedSignalTime(signal);
+  return time == null ? Infinity : Math.max(0, (Date.now() - time) / 36e5);
+}
+
+function isFreshLiveSignal(signal) {
+  return signalAgeHours(signal) <= LIVE_NEWS_MAX_AGE_HOURS;
+}
+
+function isHighImpactNews(signal) {
+  if (!signal || signal.rumor || !firstEvidence(signal)) return false;
+  const confidence = Number(signal.confidenceScore || 0);
+  const urgency = Number(signal.urgencyScore || 0);
+  const verifiedEnough = ['VERIFIED', 'PROBABLE'].includes(signal.verificationState) || confidence >= 0.75;
+  const severeEvent = HIGH_IMPACT_NEWS_EVENTS.has(signal.eventType);
+  const severeScore = urgency >= 0.75 && confidence >= 0.70;
+  const exceptionalRegulatory = signal.eventType === 'major_regulatory_action' && urgency >= 0.78 && confidence >= 0.80;
+  return verifiedEnough && ((severeEvent && severeScore) || exceptionalRegulatory || confidence >= 0.88);
+}
+
+function impactGateReason(signal) {
+  if (!isFreshLiveSignal(signal)) return `실시간 제외: ${Math.round(signalAgeHours(signal))}h 경과`;
+  if (signal?.rumor) return '루머 제외';
+  if (!firstEvidence(signal)) return '근거 없음';
+  if (!isHighImpactNews(signal)) return '파급력 기준 미달';
+  return '실시간 고파급 기준 통과';
 }
 
 function firstEvidence(signal) {
@@ -783,15 +822,15 @@ function coinPickLabel(signal) {
 function recommendationScore(signal) {
   const trade = newsTradeView(signal);
   const statusWeight = trade.status === 'PREVIEW_READY' ? 80 : trade.status === 'GATE_REVIEW' ? 60 : trade.status === 'WATCH' ? 35 : 10;
-  const criticalWeight = CRITICAL_EVENTS.has(signal.eventType) ? 15 : 0;
+  const impactWeight = HIGH_IMPACT_NEWS_EVENTS.has(signal.eventType) ? 35 : CRITICAL_EVENTS.has(signal.eventType) ? 15 : 0;
   const verifyWeight = signal.verificationState === 'VERIFIED' ? 15 : signal.verificationState === 'PROBABLE' ? 8 : 0;
-  const rumorPenalty = signal.rumor ? 30 : 0;
-  return statusWeight + criticalWeight + verifyWeight + Number(signal.urgencyScore || 0) * 10 + Number(signal.confidenceScore || 0) * 10 - rumorPenalty;
+  const freshnessWeight = Math.max(0, LIVE_NEWS_MAX_AGE_HOURS - signalAgeHours(signal));
+  return statusWeight + impactWeight + verifyWeight + freshnessWeight + Number(signal.urgencyScore || 0) * 20 + Number(signal.confidenceScore || 0) * 15;
 }
 
 function topNewsRecommendations(limit = 3) {
   return (state.signals || [])
-    .filter((signal) => signal?.symbol && firstEvidence(signal))
+    .filter((signal) => signal?.symbol && isFreshLiveSignal(signal) && isHighImpactNews(signal))
     .map((signal) => ({ signal, score: recommendationScore(signal) }))
     .sort((a, b) => b.score - a.score || String(b.signal.receivedAt || '').localeCompare(String(a.signal.receivedAt || '')))
     .slice(0, limit)
@@ -806,7 +845,9 @@ function renderNewsRecommendations(body) {
   }
   const picks = topNewsRecommendations(3);
   if (!picks.length) {
-    body.innerHTML = `<div class="muted">추천할 중요 뉴스/코인 후보가 없습니다. 검증된 뉴스 시그널이 들어오면 여기에 3개까지 표시됩니다.</div>`;
+    const skipped = (state.signals || []).slice(0, 8).map((signal) => impactGateReason(signal));
+    body.innerHTML = `<div class="muted">실시간 고파급 뉴스 후보가 없습니다. Zcash 취약점급처럼 24시간 이내·근거 있음·비루머·urg/conf 기준을 통과한 것만 여기에 표시합니다.</div>
+    <div class="muted" style="margin-top:6px">최근 제외 사유: ${escapeHtml([...new Set(skipped)].slice(0, 3).join(' · ') || '최근 시그널 없음')}</div>`;
     return;
   }
   body.innerHTML = `<div class="news-picks">
@@ -815,15 +856,15 @@ function renderNewsRecommendations(body) {
       const trade = newsTradeView(signal);
       const active = state.activeSignal?.signalId === signal.signalId ? ' active' : '';
       return `<button class="news-pick${active}" data-signal-id="${escapeHtml(signal.signalId || '')}">
-        <div class="news-pick-top"><span class="badge">#${index + 1}</span><span class="badge ${trade.className}">${escapeHtml(trade.label)}</span><span class="muted">${escapeHtml(String(signal.receivedAt || '').replace('T', ' ').slice(5, 16))}</span></div>
+        <div class="news-pick-top"><span class="badge">LIVE #${index + 1}</span><span class="badge ${trade.className}">${escapeHtml(trade.label)}</span><span class="muted">${escapeHtml(signalAgeHours(signal) < 1 ? `${Math.round(signalAgeHours(signal) * 60)}m 전` : `${signalAgeHours(signal).toFixed(1)}h 전`)}</span></div>
         <div class="news-pick-title">${escapeHtml(cleanNewsHeadline(evidence.summary))}</div>
         <div class="news-pick-coin"><strong>${escapeHtml(coinPickLabel(signal))}</strong><span class="${signal.direction === 'LONG' ? 'up' : signal.direction === 'SHORT' ? 'down' : 'flat'}">${signal.direction === 'LONG' ? '▲' : signal.direction === 'SHORT' ? '▼' : '·'} ${escapeHtml(signal.direction || 'WATCH')}</span></div>
         <div class="news-pick-meta">${escapeHtml((signal.eventType || '').replace(/_/g, ' '))} · conf ${signal.confidenceScore ?? '-'} · urg ${signal.urgencyScore ?? '-'} · ${escapeHtml(evidence.source_label || 'source')}</div>
-        <div class="news-pick-reason">${escapeHtml((trade.reasons || []).slice(0, 2).join(', '))}</div>
+        <div class="news-pick-reason">${escapeHtml(impactGateReason(signal))} · ${escapeHtml((trade.reasons || []).slice(0, 2).join(', '))}</div>
       </button>`;
     }).join('')}
   </div>
-  <div class="muted" style="margin-top:6px">차트 대신 최신 중요뉴스 → 코인 후보를 표시합니다. 클릭하면 게이트 패널에 근거가 열립니다.</div>`;
+  <div class="muted" style="margin-top:6px">24시간 이내 실시간 고파급 뉴스만 최대 3개 표시합니다. 기준 미달 자잘한 뉴스는 채우지 않습니다.</div>`;
   $$('.news-pick', body).forEach((button) => button.addEventListener('click', () => selectSignal(button.dataset.signalId)));
 }
 
