@@ -18,6 +18,8 @@ risk/execution gate가 담당합니다. 터미널은 **관측 + 부작용 없는
 - 에이전트는 시그널을 **auto-dom에 직접** 전달합니다 (터미널은 수신구가 아님).
 - 터미널은 auto-dom의 **inbox JSONL**을 읽어 SIGNALS 피드를 보여주고, 브릿지 HTTP를 프록시해
   상태/판정/비상정지를 노출합니다.
+- SIGNALS 피드는 각 뉴스 시그널을 `프리뷰대상` / `게이트검토` / `관찰` / `거래금지`로 분리합니다.
+  이 판정은 UI용 사전 필터이며, 주문 승인이나 실행 권한이 아닙니다.
 
 ## 실행 순서 (대상 PC)
 
@@ -47,7 +49,7 @@ risk/execution gate가 담당합니다. 터미널은 **관측 + 부작용 없는
 |---|---|
 | `GET /api/autodom/status` | 브릿지 health + `/v1/status` (모드·카운터·kill-switch·daily-stop·live_enabled). 오프라인이면 `online:false` |
 | `GET /api/autodom/dashboard` | `/v1/dashboard/snapshot` (caps, env readiness 불리언 — 시크릿 없음) |
-| `GET /api/signals/recent` | auto-dom inbox JSONL tail을 파싱해 최신순 반환 |
+| `GET /api/signals/recent` | auto-dom inbox JSONL tail을 파싱해 최신순 반환. 각 항목에 뉴스매매 사전판정(`newsTrade`) 포함 |
 | `GET /api/signals/executions` | auto-dom runtime/live audit를 읽어 실행 판정과 원 signal 근거를 표시 |
 | `POST /api/signals/preview` | `/v1/signals/preview` — 부작용 없는 risk/exec 판정 (로그인 필요) |
 | `POST /api/autodom/agent/actions` | `pause_trading` / `resume_trading`(operator_approved 필요). 주문/레버리지 변경 불가 |
