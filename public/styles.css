@@ -157,6 +157,13 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 
 .evidence { display: grid; gap: 5px; max-height: 240px; overflow: auto; }
 .evidence-item { border-left: 2px solid var(--line-strong); padding: 3px 0 3px 8px; }
+.news-picks { display: grid; gap: 7px; }
+.news-pick { width: 100%; text-align: left; display: grid; gap: 5px; padding: 9px; background: linear-gradient(180deg, #0b1218, #060a0e); border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: 6px; }
+.news-pick:hover, .news-pick.active { border-color: var(--accent); border-left-color: var(--accent); background: #101923; }
+.news-pick-top, .news-pick-coin { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.news-pick-title { font-size: 13px; line-height: 1.35; font-weight: 750; color: var(--text); }
+.news-pick-coin strong { font-size: 15px; letter-spacing: .02em; }
+.news-pick-meta, .news-pick-reason { color: var(--muted); font-size: 11px; line-height: 1.35; }
 .position-item { border-bottom: 1px solid var(--line); padding: 7px 0; display: grid; gap: 3px; }
 .pos-evidence-toggle { background: transparent; border: 0; color: #9dbdff; padding: 0; font-size: 11px; cursor: pointer; justify-self: start; }
 .pos-evidence-toggle:hover { text-decoration: underline; background: transparent; border: 0; }

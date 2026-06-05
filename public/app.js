@@ -31,7 +31,7 @@ const DEFAULT_VIEWS = {
   },
   signals: {
     left: ['signals', 'watchlist'],
-    center: ['execution-gate', 'chart'],
+    center: ['execution-gate', 'news-recommendations'],
     right: ['positions', 'alerts']
   },
   chart: {
@@ -49,6 +49,7 @@ const WIDGETS = {
   alerts: { title: 'ALERTS', subtitle: '가격/지표 알림', render: renderAlerts },
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
   'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true },
+  'news-recommendations': { title: 'IMPORTANT NEWS + COIN PICKS', subtitle: '뉴스 기반 추천 3개', render: renderNewsRecommendations, big: true },
   positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
 };
 
@@ -62,6 +63,11 @@ function isRenderableWidget(widgetId) {
 
 function sanitizePanelWidgets(widgets = []) {
   return widgets.filter(isRenderableWidget);
+}
+
+function normalizeWidgetsForTab(tab, widgets = []) {
+  const mapped = widgets.map((widgetId) => (tab === 'signals' && widgetId === 'chart' ? 'news-recommendations' : widgetId));
+  return [...new Set(mapped)].filter(isRenderableWidget);
 }
 
 function loadLayout() {
@@ -176,10 +182,10 @@ function getViewLayout(tab = state.activeTab) {
   const pick = (key) => {
     const savedArr = saved?.[key];
     if (Array.isArray(savedArr)) {
-      const clean = sanitizePanelWidgets(savedArr);
+      const clean = normalizeWidgetsForTab(tab, savedArr);
       if (clean.length || savedArr.length === 0) return clean;
     }
-    return sanitizePanelWidgets(base[key]);
+    return normalizeWidgetsForTab(tab, base[key]);
   };
   return { left: pick('left'), center: pick('center'), right: pick('right') };
 }
@@ -187,9 +193,9 @@ function getViewLayout(tab = state.activeTab) {
 function setViewLayout(tab, next) {
   state.layout.tabs ||= {};
   state.layout.tabs[tab] = {
-    left: sanitizePanelWidgets(next.left || []),
-    center: sanitizePanelWidgets(next.center || []),
-    right: sanitizePanelWidgets(next.right || [])
+    left: normalizeWidgetsForTab(tab, next.left || []),
+    center: normalizeWidgetsForTab(tab, next.center || []),
+    right: normalizeWidgetsForTab(tab, next.right || [])
   };
   saveLayout();
 }
@@ -600,6 +606,27 @@ function signalVerifyClass(value) {
   return value === 'VERIFIED' ? 'ok' : value === 'PROBABLE' ? 'warn' : 'err';
 }
 
+function newsTradeView(signal) {
+  const fromApi = signal.newsTrade;
+  if (fromApi && fromApi.label) return fromApi;
+  const evidence = Array.isArray(signal.signal?.evidence_summary) ? signal.signal.evidence_summary : [];
+  const reasons = [];
+  if (signal.rumor) reasons.push('루머 플래그');
+  if (!['VERIFIED', 'PROBABLE'].includes(signal.verificationState)) reasons.push('검증 부족');
+  if (signal.confidenceScore == null || signal.confidenceScore < 0.75) reasons.push('신뢰도 부족');
+  if (signal.urgencyScore == null || signal.urgencyScore < 0.55) reasons.push('긴급도 낮음');
+  if (!evidence.length) reasons.push('근거 없음');
+  if (signal.tradeAllowed === false) reasons.push('trade_allowed=false');
+  if (!reasons.length && signal.verificationState === 'VERIFIED' && signal.confidenceScore >= 0.85 && signal.urgencyScore >= 0.70 && signal.tradeAllowed === true) {
+    return { label: '프리뷰대상', className: 'ok', reasons: ['검증·신뢰·긴급도 통과'] };
+  }
+  if (evidence.length && !signal.rumor && ['VERIFIED', 'PROBABLE'].includes(signal.verificationState)) {
+    return { label: '게이트검토', className: 'warn', reasons: reasons.length ? reasons : ['auto-dom 게이트 확인 필요'] };
+  }
+  if (evidence.length && !signal.rumor) return { label: '관찰', className: 'warn', reasons: reasons.length ? reasons : ['거래 조건 미충족'] };
+  return { label: '거래금지', className: 'err', reasons: reasons.length ? reasons : ['거래 조건 미충족'] };
+}
+
 function selectSignal(signalId) {
   const signal = state.signals.find((s) => s.signalId === signalId);
   if (!signal) return;
@@ -619,8 +646,10 @@ function renderSignals(body) {
     return;
   }
   body.innerHTML = `
-    <div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Event</th><th>Verify</th><th>Conf</th><th>Urg</th><th>TTL</th></tr></thead><tbody>
-      ${signals.map((s) => `<tr class="signal-row ${isImportantSignal(s) ? 'signal-important' : ''} ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}">
+    <div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Event</th><th>Verify</th><th>Conf</th><th>Urg</th><th>Trade</th><th>TTL</th></tr></thead><tbody>
+      ${signals.map((s) => {
+        const trade = newsTradeView(s);
+        return `<tr class="signal-row ${isImportantSignal(s) ? 'signal-important' : ''} ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}" title="${escapeHtml(trade.reasons.join(', '))}">
         <td class="left">${escapeHtml(String(s.receivedAt || '').slice(11, 19))}</td>
         <td class="left">${isImportantSignal(s) ? '★ ' : ''}${escapeHtml(s.symbol || '')}</td>
         <td class="${s.direction === 'LONG' ? 'up' : s.direction === 'SHORT' ? 'down' : 'flat'}">${s.direction === 'LONG' ? '▲ LONG' : s.direction === 'SHORT' ? '▼ SHORT' : escapeHtml(s.direction || '')}</td>
@@ -628,10 +657,11 @@ function renderSignals(body) {
         <td><span class="badge ${signalVerifyClass(s.verificationState)}">${escapeHtml(s.verificationState || '?')}${s.rumor ? ' · rumor' : ''}</span></td>
         <td>${s.confidenceScore != null ? s.confidenceScore.toFixed(2) : '-'}</td>
         <td>${s.urgencyScore != null ? s.urgencyScore.toFixed(2) : '-'}</td>
+        <td><span class="badge ${trade.className}">${escapeHtml(trade.label)}</span></td>
         <td>${s.ttlSec != null ? s.ttlSec + 's' : '-'}</td>
-      </tr>`).join('')}
+      </tr>`; }).join('')}
     </tbody></table></div>
-    <div class="muted" style="margin-top:6px">행 클릭 → 차트 로드 + 게이트 PREVIEW. 주문 실행은 auto-dom이 담당하며 터미널은 개시하지 않습니다.</div>`;
+    <div class="muted" style="margin-top:6px">뉴스매매 판정: 프리뷰대상=검증·신뢰·긴급도 통과 후 auto-dom preview 가능. 터미널은 주문을 개시하지 않습니다.</div>`;
   $$('.signal-row', body).forEach((row) => row.addEventListener('click', () => selectSignal(row.dataset.signalId)));
 }
 
@@ -674,7 +704,7 @@ function renderExecutionGate(body) {
     ` : `<div class="muted" style="margin-top:6px">${escapeHtml(status.statusMessage || 'auto-dom 브릿지 실행 확인 (기본 127.0.0.1:8765, ingest_only).')}</div>`}
     <div style="border-top:1px solid var(--line); margin-top:8px; padding-top:8px"><strong>선택 시그널 + 근거</strong></div>
     ${state.activeSignal ? `
-      <div class="muted" style="margin-top:4px">${escapeHtml(state.activeSignal.symbol || '')} ${escapeHtml(state.activeSignal.direction || '')} · ${escapeHtml((state.activeSignal.eventType || '').replace(/_/g, ' '))} · conf ${state.activeSignal.confidenceScore ?? '-'} urg ${state.activeSignal.urgencyScore ?? '-'}</div>
+      ${(() => { const trade = newsTradeView(state.activeSignal); return `<div class="muted" style="margin-top:4px">${escapeHtml(state.activeSignal.symbol || '')} ${escapeHtml(state.activeSignal.direction || '')} · ${escapeHtml((state.activeSignal.eventType || '').replace(/_/g, ' '))} · conf ${state.activeSignal.confidenceScore ?? '-'} urg ${state.activeSignal.urgencyScore ?? '-'} · <span class="badge ${trade.className}">${escapeHtml(trade.label)}</span></div><div class="muted" style="margin-top:3px">판정 사유: ${escapeHtml(trade.reasons.join(', '))}</div>`; })()}
       <div style="margin-top:6px"><strong>근거 (수집 뉴스/출처)</strong></div>
       ${evidenceHtml(state.activeSignal.signal)}
       <button id="gate-preview" style="margin-top:6px" ${online ? '' : 'disabled title="브릿지 오프라인 — preview 불가"'}>PREVIEW (게이트 판정, 부작용 없음)</button>
@@ -712,6 +742,89 @@ const CRITICAL_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 
 
 function isImportantSignal(s) {
   return (s.urgencyScore != null && s.urgencyScore >= 0.7) || (s.confidenceScore != null && s.confidenceScore >= 0.85) || s.verificationState === 'VERIFIED' || CRITICAL_EVENTS.has(s.eventType);
+}
+
+function firstEvidence(signal) {
+  const evidence = Array.isArray(signal?.signal?.evidence_summary) ? signal.signal.evidence_summary : [];
+  return evidence.find((item) => item?.summary || item?.url || item?.source_label) || null;
+}
+
+function cleanNewsHeadline(summary = '') {
+  let text = String(summary || '')
+    .replace(/\s*\|\s*published=.*$/i, '')
+    .replace(/^article\s+/i, '')
+    .replace(/^"|"$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  text = text.replace(/^(.{8,160}?)\s+\|\s+.*/u, '$1');
+  return text || '중요 뉴스 근거 확인 필요';
+}
+
+function inferredCoinFromEvidence(signal) {
+  const text = `${signal?.symbol || ''} ${(firstEvidence(signal)?.summary || '')}`.toLowerCase();
+  const pairs = [
+    ['ZEC', /(?:\b|\$|#)(zcash|zec)(?:\b)/i],
+    ['BTC', /(?:\b|\$|#)(bitcoin|btc)(?:\b)/i],
+    ['ETH', /(?:\b|\$|#)(ethereum|eth)(?:\b)/i],
+    ['SOL', /(?:\b|\$|#)(solana|sol)(?:\b)/i],
+    ['ADA', /(?:\b|\$|#)(cardano|ada)(?:\b)/i],
+    ['LINK', /(?:\b|\$|#)(chainlink|link)(?:\b)/i]
+  ];
+  const found = pairs.find(([, pattern]) => pattern.test(text));
+  return found?.[0] || String(signal?.symbol || '').replace(/USDT$|USD$|PERP$/i, '') || 'COIN';
+}
+
+function coinPickLabel(signal) {
+  const base = inferredCoinFromEvidence(signal);
+  const direction = signal.direction === 'SHORT' ? 'SHORT 후보' : signal.direction === 'LONG' ? 'LONG 후보' : '관찰 후보';
+  return `${base || 'COIN'} · ${direction}`;
+}
+
+function recommendationScore(signal) {
+  const trade = newsTradeView(signal);
+  const statusWeight = trade.status === 'PREVIEW_READY' ? 80 : trade.status === 'GATE_REVIEW' ? 60 : trade.status === 'WATCH' ? 35 : 10;
+  const criticalWeight = CRITICAL_EVENTS.has(signal.eventType) ? 15 : 0;
+  const verifyWeight = signal.verificationState === 'VERIFIED' ? 15 : signal.verificationState === 'PROBABLE' ? 8 : 0;
+  const rumorPenalty = signal.rumor ? 30 : 0;
+  return statusWeight + criticalWeight + verifyWeight + Number(signal.urgencyScore || 0) * 10 + Number(signal.confidenceScore || 0) * 10 - rumorPenalty;
+}
+
+function topNewsRecommendations(limit = 3) {
+  return (state.signals || [])
+    .filter((signal) => signal?.symbol && firstEvidence(signal))
+    .map((signal) => ({ signal, score: recommendationScore(signal) }))
+    .sort((a, b) => b.score - a.score || String(b.signal.receivedAt || '').localeCompare(String(a.signal.receivedAt || '')))
+    .slice(0, limit)
+    .map((item) => item.signal);
+}
+
+function renderNewsRecommendations(body) {
+  if (!state.signals?.length) {
+    body.innerHTML = `<div class="muted">중요뉴스 추천 로딩 중...</div>`;
+    if (!state.signalsLoaded) { state.signalsLoaded = true; loadSignals().then(renderWorkspace).catch(() => {}); }
+    return;
+  }
+  const picks = topNewsRecommendations(3);
+  if (!picks.length) {
+    body.innerHTML = `<div class="muted">추천할 중요 뉴스/코인 후보가 없습니다. 검증된 뉴스 시그널이 들어오면 여기에 3개까지 표시됩니다.</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="news-picks">
+    ${picks.map((signal, index) => {
+      const evidence = firstEvidence(signal) || {};
+      const trade = newsTradeView(signal);
+      const active = state.activeSignal?.signalId === signal.signalId ? ' active' : '';
+      return `<button class="news-pick${active}" data-signal-id="${escapeHtml(signal.signalId || '')}">
+        <div class="news-pick-top"><span class="badge">#${index + 1}</span><span class="badge ${trade.className}">${escapeHtml(trade.label)}</span><span class="muted">${escapeHtml(String(signal.receivedAt || '').replace('T', ' ').slice(5, 16))}</span></div>
+        <div class="news-pick-title">${escapeHtml(cleanNewsHeadline(evidence.summary))}</div>
+        <div class="news-pick-coin"><strong>${escapeHtml(coinPickLabel(signal))}</strong><span class="${signal.direction === 'LONG' ? 'up' : signal.direction === 'SHORT' ? 'down' : 'flat'}">${signal.direction === 'LONG' ? '▲' : signal.direction === 'SHORT' ? '▼' : '·'} ${escapeHtml(signal.direction || 'WATCH')}</span></div>
+        <div class="news-pick-meta">${escapeHtml((signal.eventType || '').replace(/_/g, ' '))} · conf ${signal.confidenceScore ?? '-'} · urg ${signal.urgencyScore ?? '-'} · ${escapeHtml(evidence.source_label || 'source')}</div>
+        <div class="news-pick-reason">${escapeHtml((trade.reasons || []).slice(0, 2).join(', '))}</div>
+      </button>`;
+    }).join('')}
+  </div>
+  <div class="muted" style="margin-top:6px">차트 대신 최신 중요뉴스 → 코인 후보를 표시합니다. 클릭하면 게이트 패널에 근거가 열립니다.</div>`;
+  $$('.news-pick', body).forEach((button) => button.addEventListener('click', () => selectSignal(button.dataset.signalId)));
 }
 
 // Renders a signal's collected-news evidence + risk notes — the rationale behind it.
