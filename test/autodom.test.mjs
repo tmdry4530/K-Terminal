@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
+import { assessNewsTrade, normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
 
 test('parseInboxLine flattens the inbox envelope payload', () => {
+  const published = new Date().toUTCString();
   const line = JSON.stringify({
-    received_at: '2026-04-22T09:59:15Z',
+    received_at: new Date().toISOString(),
     signal_id: 'sig_1',
     event_id: 'evt_1',
-    payload: { symbol: 'BTCUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.95, urgency_score: 0.94, ttl_sec: 90, rumor: false }
+    payload: { symbol: 'BTCUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.95, urgency_score: 0.94, ttl_sec: 90, rumor: false, trade_allowed: true, evidence_summary: [{ source_type: 'official', source_label: 'Binance', summary: `incident confirmed | published=${published}` }] }
   });
   const parsed = parseInboxLine(line);
   assert.equal(parsed.signalId, 'sig_1');
@@ -19,6 +20,17 @@ test('parseInboxLine flattens the inbox envelope payload', () => {
   assert.equal(parsed.verificationState, 'VERIFIED');
   assert.equal(parsed.confidenceScore, 0.95);
   assert.equal(parsed.signal.event_type, 'protocol_critical_exploit');
+  assert.equal(parsed.newsTrade.status, 'PREVIEW_READY');
+});
+
+test('assessNewsTrade only allows real-time serious news for preview/review', () => {
+  const published = new Date().toUTCString();
+  const evidence = [{ summary: `official severe incident | published=${published}` }];
+  assert.equal(assessNewsTrade({ symbol: 'BTCUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.91, urgency_score: 0.86, trade_allowed: true, evidence_summary: evidence }).status, 'PREVIEW_READY');
+  assert.equal(assessNewsTrade({ symbol: 'ETHUSDT', direction: 'LONG', event_type: 'bridge_exploit', verification_state: 'PROBABLE', confidence_score: 0.78, urgency_score: 0.82, trade_allowed: false, evidence_summary: evidence }).status, 'GATE_REVIEW');
+  assert.equal(assessNewsTrade({ symbol: 'SOLUSDT', direction: 'LONG', event_type: 'major_regulatory_action', verification_state: 'PROBABLE', confidence_score: 0.9, urgency_score: 0.9, evidence_summary: evidence }).status, 'NO_TRADE');
+  assert.equal(assessNewsTrade({ symbol: 'ZECUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.95, urgency_score: 0.95, trade_allowed: true, evidence_summary: [{ summary: 'old incident | published=Thu, 04 Jun 2026 04:49:44 -0400' }] }).status, 'NO_TRADE');
+  assert.equal(assessNewsTrade({ symbol: 'DOGEUSDT', rumor: true }).status, 'NO_TRADE');
 });
 
 test('parseInboxLine tolerates a bare signal and rejects bad json', () => {

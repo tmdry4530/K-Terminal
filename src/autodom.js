@@ -72,6 +72,62 @@ export async function agentAction(action) {
   }
 }
 
+const SERIOUS_NEWS_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'exchange_delisting_or_systemic_exchange_failure', 'war_level_global_macro_shock']);
+const REALTIME_NEWS_MAX_AGE_MS = 30 * 60 * 1000;
+
+function evidencePublishedAtMs(signal) {
+  const evidence = Array.isArray(signal?.evidence_summary) ? signal.evidence_summary : [];
+  const summary = evidence.find((item) => item?.summary)?.summary || '';
+  const match = String(summary).match(/published=([^|]+)$/i);
+  if (!match) return null;
+  const time = Date.parse(match[1].trim());
+  return Number.isFinite(time) ? time : null;
+}
+
+function signalFreshEnough(signalLike, signal) {
+  const candidates = [evidencePublishedAtMs(signal), Date.parse(signalLike?.receivedAt || ''), Date.parse(signal?.generated_at || ''), Date.parse(signal?.first_detected_at || '')];
+  const time = candidates.find((value) => Number.isFinite(value));
+  if (!Number.isFinite(time)) return false;
+  return Date.now() - time <= REALTIME_NEWS_MAX_AGE_MS;
+}
+
+export function assessNewsTrade(signalLike) {
+  const signal = signalLike?.signal && typeof signalLike.signal === 'object' ? signalLike.signal : signalLike;
+  if (!signal || typeof signal !== 'object') {
+    return { status: 'NO_TRADE', label: '거래금지', className: 'err', reasons: ['시그널 없음'] };
+  }
+  const verification = signalLike.verificationState || signal.verification_state || null;
+  const confidence = typeof signalLike.confidenceScore === 'number' ? signalLike.confidenceScore : signal.confidence_score;
+  const urgency = typeof signalLike.urgencyScore === 'number' ? signalLike.urgencyScore : signal.urgency_score;
+  const ttl = typeof signalLike.ttlSec === 'number' ? signalLike.ttlSec : signal.ttl_sec;
+  const evidence = Array.isArray(signal.evidence_summary) ? signal.evidence_summary : [];
+  const tradeAllowed = signalLike.tradeAllowed ?? signal.trade_allowed;
+  const seriousNews = SERIOUS_NEWS_EVENTS.has(signal.event_type || signalLike.eventType);
+  const fresh = signalFreshEnough(signalLike, signal);
+  const reasons = [];
+
+  if (!signal.symbol) reasons.push('심볼 없음');
+  if (!signal.direction) reasons.push('방향 없음');
+  if (signal.rumor) reasons.push('루머 플래그');
+  if (ttl != null && ttl <= 0) reasons.push('TTL 만료');
+  if (!['VERIFIED', 'PROBABLE'].includes(verification)) reasons.push('검증 부족');
+  if (typeof confidence !== 'number' || confidence < 0.75) reasons.push('신뢰도 부족');
+  if (typeof urgency !== 'number' || urgency < 0.80) reasons.push('긴급도 낮음');
+  if (!evidence.length) reasons.push('근거 없음');
+  if (!seriousNews) reasons.push('심각뉴스 기준 미달');
+  if (!fresh) reasons.push('실시간성 부족');
+  if (tradeAllowed === false) reasons.push('trade_allowed=false');
+
+  const coreReady = signal.symbol && signal.direction && !signal.rumor && (ttl == null || ttl > 0) && evidence.length > 0 && seriousNews && fresh;
+  const previewReady = coreReady && verification === 'VERIFIED' && confidence >= 0.90 && urgency >= 0.85 && tradeAllowed === true;
+  if (previewReady) return { status: 'PREVIEW_READY', label: '프리뷰대상', className: 'ok', reasons: ['실시간 심각뉴스·검증·신뢰·긴급도 통과'] };
+
+  const gateReview = coreReady && ['VERIFIED', 'PROBABLE'].includes(verification) && confidence >= 0.75 && urgency >= 0.80;
+  if (gateReview) return { status: 'GATE_REVIEW', label: '게이트검토', className: 'warn', reasons: reasons.length ? reasons : ['auto-dom 게이트 확인 필요'] };
+
+  return { status: 'NO_TRADE', label: '거래금지', className: 'err', reasons: reasons.length ? reasons : ['실시간 심각뉴스 기준 미달'] };
+}
+
 // Each inbox line is { received_at, signal_id, event_id, payload: <signal>, source }.
 // Flatten to the signal fields the UI renders, newest first.
 export function parseInboxLine(line) {
@@ -79,7 +135,7 @@ export function parseInboxLine(line) {
   try { record = JSON.parse(line); } catch { return null; }
   const signal = record?.payload && typeof record.payload === 'object' ? record.payload : record;
   if (!signal || typeof signal !== 'object') return null;
-  return {
+  const flattened = {
     receivedAt: record.received_at || signal.generated_at || null,
     signalId: record.signal_id || signal.signal_id || null,
     eventId: record.event_id || signal.event_id || null,
@@ -92,11 +148,13 @@ export function parseInboxLine(line) {
     urgencyScore: typeof signal.urgency_score === 'number' ? signal.urgency_score : null,
     noveltyScore: typeof signal.novelty_score === 'number' ? signal.novelty_score : null,
     ttlSec: typeof signal.ttl_sec === 'number' ? signal.ttl_sec : null,
-    tradeAllowed: Boolean(signal.trade_allowed),
+    tradeAllowed: signal.trade_allowed === true ? true : signal.trade_allowed === false ? false : null,
     executionPreference: signal.execution_preference || null,
     generatedAt: signal.generated_at || null,
     signal
   };
+  flattened.newsTrade = assessNewsTrade(flattened);
+  return flattened;
 }
 
 export async function recentSignals(limit = 50, inboxPath = config.autoDomInboxPath) {
