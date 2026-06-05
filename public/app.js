@@ -23,9 +23,14 @@ const state = {
   autodom: null
 };
 
-const SUPPORTED_TABS = new Set(['signals']);
+const SUPPORTED_TABS = new Set(['signals', 'market']);
 
 const DEFAULT_VIEWS = {
+  market: {
+    left: ['market-pulse', 'watchlist'],
+    center: ['chart'],
+    right: ['alerts', 'data-sources']
+  },
   signals: {
     left: ['signals', 'watchlist'],
     center: ['execution-gate', 'news-recommendations'],
@@ -1365,9 +1370,10 @@ async function selectSymbol(symbol) {
   state.activeSymbol = symbol;
   state.chart = null;
   localStorage.setItem('kt.activeSymbol', symbol);
-  state.activeTab = 'signals';
+  state.activeTab = 'market';
   updateTabs();
   renderWorkspace();
+  setTimeout(() => loadChart().then(renderWorkspace).catch(() => {}), 0);
 }
 
 function updateTabs() {
@@ -1385,7 +1391,7 @@ function installTabs() {
 }
 
 function backgroundLoadForTab(tab) {
-  if (tab === 'chart' && SUPPORTED_TABS.has(tab)) loadChart().then(renderWorkspace).catch(() => {});
+  if (tab === 'market' && SUPPORTED_TABS.has(tab)) loadChart().then(renderWorkspace).catch(() => {});
 }
 
 function installKeyboard() {
