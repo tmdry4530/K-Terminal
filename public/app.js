@@ -813,8 +813,15 @@ function valuesForScale(candles) {
   return { min: Math.min(...lows), max: Math.max(...highs) };
 }
 
+// Shared chart geometry. The right gutter (CHART_W - CHART_PLOT_R) reserves room for the
+// value-axis labels so they stay inside the fixed-width viewBox and never clip at the right edge;
+// every sub-chart uses the same [CHART_PLOT_L, CHART_PLOT_R] x-range so their time axes line up.
+const CHART_W = 920;
+const CHART_PLOT_L = 38;
+const CHART_PLOT_R = 862;
+
 function drawPriceChart(svg, candles, readout, viewH = 330) {
-  const width = 920;
+  const width = CHART_W;
   const height = Math.max(200, Math.round(viewH));
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   if (!candles.length) {
@@ -834,13 +841,13 @@ function drawPriceChart(svg, candles, readout, viewH = 330) {
   const plotTop = 15;
   const plotBottom = height - volH - 14;
   const volumeTop = plotBottom + 8;
-  const x = (i) => 40 + (i / Math.max(1, candles.length - 1)) * (width - 70);
+  const x = (i) => CHART_PLOT_L + (i / Math.max(1, candles.length - 1)) * (CHART_PLOT_R - CHART_PLOT_L);
   const y = (value) => plotBottom - ((value - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
-  const candleWidth = Math.max(2, Math.min(10, (width - 90) / candles.length * 0.62));
+  const candleWidth = Math.max(2, Math.min(10, (CHART_PLOT_R - CHART_PLOT_L) / candles.length * 0.62));
   const grid = [0, .25, .5, .75, 1].map((p) => {
     const gy = plotTop + p * (plotBottom - plotTop);
     const value = yMax - p * (yMax - yMin);
-    return `<line x1="35" x2="900" y1="${gy}" y2="${gy}" stroke="#16222a"/><text x="904" y="${gy + 4}" fill="#7c8b94" font-size="10">${fmt(value)}</text>`;
+    return `<line x1="${CHART_PLOT_L - 3}" x2="${CHART_PLOT_R}" y1="${gy}" y2="${gy}" stroke="#16222a"/><text x="${CHART_W - 6}" y="${gy + 4}" text-anchor="end" fill="#7c8b94" font-size="10">${fmt(value)}</text>`;
   }).join('');
   const volumeBars = candles.map((d, i) => {
     const h = ((Number(d.volume) || 0) / volMax) * volH;
@@ -870,14 +877,14 @@ function drawPriceChart(svg, candles, readout, viewH = 330) {
     <path class="ma20" d="${path(ma20)}"/>
     <path class="ma50" d="${path(ma50)}"/>
     <line id="ch-line" x1="0" x2="0" y1="${plotTop}" y2="${plotBottom}" stroke="#5b6b76" stroke-dasharray="3 3" style="display:none"/>
-    <text x="40" y="12" fill="#dbe6ec" font-size="11">${escapeHtml(state.chart.symbol)} ${escapeHtml(state.chart.range)} ${escapeHtml(state.chart.interval)} | MA20/MA50/Bollinger/Volume</text>
+    <text x="${CHART_PLOT_L}" y="12" fill="#dbe6ec" font-size="11">${escapeHtml(state.chart.symbol)} ${escapeHtml(state.chart.range)} ${escapeHtml(state.chart.interval)} | MA20/MA50/Bollinger/Volume</text>
   `;
   const crosshair = svg.querySelector('#ch-line');
   svg.onmousemove = (event) => {
     const rect = svg.getBoundingClientRect();
     if (!rect.width || !candles.length) return;
     const xv = ((event.clientX - rect.left) / rect.width) * width;
-    const i = Math.max(0, Math.min(candles.length - 1, Math.round(((xv - 40) / (width - 70)) * (candles.length - 1))));
+    const i = Math.max(0, Math.min(candles.length - 1, Math.round(((xv - CHART_PLOT_L) / (CHART_PLOT_R - CHART_PLOT_L)) * (candles.length - 1))));
     const bar = candles[i];
     crosshair.setAttribute('x1', x(i));
     crosshair.setAttribute('x2', x(i));
@@ -888,7 +895,7 @@ function drawPriceChart(svg, candles, readout, viewH = 330) {
 }
 
 function drawComparison(svg, mainCandles, readout, viewH = 330) {
-  const width = 920;
+  const width = CHART_W;
   const height = Math.max(200, Math.round(viewH));
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   const series = [{ symbol: state.chart.symbol, candles: mainCandles }, ...(state.compareSeries || [])]
@@ -906,14 +913,14 @@ function drawComparison(svg, mainCandles, readout, viewH = 330) {
   const yMax = max + pad;
   const plotTop = 20;
   const plotBottom = height - 30;
-  const x = (i) => 40 + (i / Math.max(1, maxLen - 1)) * (width - 70);
+  const x = (i) => CHART_PLOT_L + (i / Math.max(1, maxLen - 1)) * (CHART_PLOT_R - CHART_PLOT_L);
   const y = (value) => plotBottom - ((value - yMin) / (yMax - yMin)) * (plotBottom - plotTop);
   const grid = [0, .25, .5, .75, 1].map((p) => {
     const gy = plotTop + p * (plotBottom - plotTop);
     const value = yMax - p * (yMax - yMin);
-    return `<line x1="35" x2="900" y1="${gy}" y2="${gy}" stroke="#16222a"/><text x="904" y="${gy + 4}" fill="#7c8b94" font-size="10">${value.toFixed(1)}%</text>`;
+    return `<line x1="${CHART_PLOT_L - 3}" x2="${CHART_PLOT_R}" y1="${gy}" y2="${gy}" stroke="#16222a"/><text x="${CHART_W - 6}" y="${gy + 4}" text-anchor="end" fill="#7c8b94" font-size="10">${value.toFixed(1)}%</text>`;
   }).join('');
-  const zero = `<line x1="35" x2="900" y1="${y(0)}" y2="${y(0)}" stroke="#33434e" stroke-dasharray="3 3"/>`;
+  const zero = `<line x1="${CHART_PLOT_L - 3}" x2="${CHART_PLOT_R}" y1="${y(0)}" y2="${y(0)}" stroke="#33434e" stroke-dasharray="3 3"/>`;
   const paths = normalized.map((n, idx) => `<path d="${n.pct.map((value, i) => `${i === 0 ? 'M' : 'L'}${x(i)},${y(value)}`).join(' ')}" fill="none" stroke="${colors[idx % colors.length]}" stroke-width="1.3"/>`).join('');
   const legend = normalized.map((n, idx) => {
     const last = n.pct.at(-1);
@@ -937,28 +944,28 @@ function fitPriceChart() {
 }
 
 function drawRsi(svg, candles) {
-  const width = 920, height = 70;
+  const width = CHART_W, height = 70;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   const closes = candles.map((d) => Number(d.close));
   const values = rsi(closes, 14);
-  const x = (i) => 40 + (i / Math.max(1, values.length - 1)) * (width - 70);
+  const x = (i) => CHART_PLOT_L + (i / Math.max(1, values.length - 1)) * (CHART_PLOT_R - CHART_PLOT_L);
   const y = (value) => 62 - (value / 100) * 54;
   const path = values.map((value, i) => Number.isFinite(value) ? `${i === 0 || !Number.isFinite(values[i - 1]) ? 'M' : 'L'}${x(i)},${y(value)}` : '').join(' ');
-  svg.innerHTML = `<line x1="35" x2="900" y1="${y(70)}" y2="${y(70)}" stroke="#33434e"/><line x1="35" x2="900" y1="${y(30)}" y2="${y(30)}" stroke="#33434e"/><path d="${path}" fill="none" stroke="#f4b84a" stroke-width="1.2"/><text x="40" y="12" fill="#7c8b94" font-size="10">RSI(14)</text>`;
+  svg.innerHTML = `<line x1="${CHART_PLOT_L - 3}" x2="${CHART_PLOT_R}" y1="${y(70)}" y2="${y(70)}" stroke="#33434e"/><line x1="${CHART_PLOT_L - 3}" x2="${CHART_PLOT_R}" y1="${y(30)}" y2="${y(30)}" stroke="#33434e"/><path d="${path}" fill="none" stroke="#f4b84a" stroke-width="1.2"/><text x="${CHART_PLOT_L}" y="12" fill="#7c8b94" font-size="10">RSI(14)</text>`;
 }
 
 function drawMacd(svg, candles) {
-  const width = 920, height = 70;
+  const width = CHART_W, height = 70;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   const closes = candles.map((d) => Number(d.close));
   const set = macd(closes);
   const all = [...set.macd, ...set.signal, ...set.histogram].filter(Number.isFinite);
   const maxAbs = Math.max(...all.map((v) => Math.abs(v)), 1);
-  const x = (i) => 40 + (i / Math.max(1, closes.length - 1)) * (width - 70);
+  const x = (i) => CHART_PLOT_L + (i / Math.max(1, closes.length - 1)) * (CHART_PLOT_R - CHART_PLOT_L);
   const y = (value) => height / 2 - (value / maxAbs) * 25;
   const path = (series) => series.map((value, i) => Number.isFinite(value) ? `${i === 0 || !Number.isFinite(series[i - 1]) ? 'M' : 'L'}${x(i)},${y(value)}` : '').join(' ');
   const bars = set.histogram.map((value, i) => Number.isFinite(value) ? `<rect x="${x(i) - 2}" y="${Math.min(y(0), y(value))}" width="3" height="${Math.max(1, Math.abs(y(value) - y(0)))}" fill="${value >= 0 ? '#28d17c' : '#f05b65'}" opacity=".55"/>` : '').join('');
-  svg.innerHTML = `<line x1="35" x2="900" y1="${y(0)}" y2="${y(0)}" stroke="#33434e"/>${bars}<path d="${path(set.macd)}" fill="none" stroke="#4da3ff" stroke-width="1.2"/><path d="${path(set.signal)}" fill="none" stroke="#f4b84a" stroke-width="1.2"/><text x="40" y="12" fill="#7c8b94" font-size="10">MACD(12,26,9)</text>`;
+  svg.innerHTML = `<line x1="${CHART_PLOT_L - 3}" x2="${CHART_PLOT_R}" y1="${y(0)}" y2="${y(0)}" stroke="#33434e"/>${bars}<path d="${path(set.macd)}" fill="none" stroke="#4da3ff" stroke-width="1.2"/><path d="${path(set.signal)}" fill="none" stroke="#f4b84a" stroke-width="1.2"/><text x="${CHART_PLOT_L}" y="12" fill="#7c8b94" font-size="10">MACD(12,26,9)</text>`;
 }
 
 function sma(values, period) {
@@ -1262,6 +1269,11 @@ async function authSubmit(path) {
 function installSplitters() {
   restorePanelWidths();
   let active = null;
+  // Resizing a side panel changes the chart's width, so re-fit the chart to the new size (the
+  // viewBox aspect is derived from the live container) — otherwise it letterboxes/squishes and
+  // the price axis shrinks. rAF-throttled so a drag triggers at most one redraw per frame.
+  let fitRaf = 0;
+  const scheduleChartFit = () => { if (fitRaf) return; fitRaf = requestAnimationFrame(() => { fitRaf = 0; fitPriceChart(); }); };
   $$('.splitter').forEach((splitter) => splitter.addEventListener('pointerdown', (event) => {
     active = splitter.dataset.splitter;
     splitter.setPointerCapture(event.pointerId);
@@ -1278,8 +1290,9 @@ function installSplitters() {
       document.documentElement.style.setProperty('--right-width', `${next}px`);
       state.layout.rightWidth = next;
     }
+    scheduleChartFit();
   });
-  window.addEventListener('pointerup', () => { if (active) saveLayout(); active = null; });
+  window.addEventListener('pointerup', () => { if (active) { saveLayout(); fitPriceChart(); } active = null; });
 }
 
 function restorePanelWidths() {
