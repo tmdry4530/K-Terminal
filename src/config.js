@@ -62,7 +62,13 @@ export const config = Object.freeze({
   autoDomBridgeToken: process.env.AUTO_DOM_BRIDGE_TOKEN || '',
   autoDomInboxPath: process.env.AUTO_DOM_INBOX_PATH || '',
   autoDomLiveAuditPath: process.env.AUTO_DOM_LIVE_AUDIT_PATH || '',
-  autoDomAuditRoot: process.env.AUTO_DOM_AUDIT_ROOT || ''
+  autoDomAuditRoot: process.env.AUTO_DOM_AUDIT_ROOT || '',
+  // Optional Telegram alert for real-time high-impact news + coin-pick candidates.
+  // Uses Hermes' configured messaging credentials; no Telegram token is stored here.
+  telegramImpactNewsNotify: bool(process.env.TELEGRAM_IMPACT_NEWS_NOTIFY, false),
+  telegramImpactNewsTarget: process.env.TELEGRAM_IMPACT_NEWS_TARGET || '',
+  telegramImpactNewsStatePath: process.env.TELEGRAM_IMPACT_NEWS_STATE_PATH || './data/impact-news-notified.json',
+  hermesBin: process.env.HERMES_BIN || 'hermes'
 });
 
 // In production, refuse to boot with a weak/known SECRET_KEY — it encrypts every stored API

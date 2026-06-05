@@ -23,21 +23,13 @@ const state = {
   autodom: null
 };
 
+const SUPPORTED_TABS = new Set(['signals']);
+
 const DEFAULT_VIEWS = {
-  market: {
-    left: ['market-pulse', 'watchlist'],
-    center: ['chart'],
-    right: ['alerts', 'data-sources']
-  },
   signals: {
     left: ['signals', 'watchlist'],
     center: ['execution-gate', 'news-recommendations'],
     right: ['positions', 'alerts']
-  },
-  chart: {
-    left: ['watchlist', 'market-pulse'],
-    center: ['chart'],
-    right: ['alerts', 'data-sources']
   }
 };
 
@@ -174,6 +166,7 @@ function skeletonBlock(rows = 5) {
 }
 
 function getViewLayout(tab = state.activeTab) {
+  if (!SUPPORTED_TABS.has(tab)) tab = 'signals';
   const saved = state.layout.tabs?.[tab];
   const base = DEFAULT_VIEWS[tab] || DEFAULT_VIEWS.signals;
   // Use the saved panel if it still has renderable widgets. If a saved panel had widgets but
@@ -191,6 +184,7 @@ function getViewLayout(tab = state.activeTab) {
 }
 
 function setViewLayout(tab, next) {
+  if (!SUPPORTED_TABS.has(tab)) tab = 'signals';
   state.layout.tabs ||= {};
   state.layout.tabs[tab] = {
     left: normalizeWidgetsForTab(tab, next.left || []),
@@ -1371,19 +1365,19 @@ async function selectSymbol(symbol) {
   state.activeSymbol = symbol;
   state.chart = null;
   localStorage.setItem('kt.activeSymbol', symbol);
-  state.activeTab = 'chart';
+  state.activeTab = 'signals';
   updateTabs();
   renderWorkspace();
-  setTimeout(() => loadChart().then(renderWorkspace).catch(() => {}), 0);
 }
 
 function updateTabs() {
+  if (!SUPPORTED_TABS.has(state.activeTab)) state.activeTab = 'signals';
   $$('#subtabs button').forEach((button) => button.classList.toggle('active', button.dataset.tab === state.activeTab));
 }
 
 function installTabs() {
   $$('#subtabs button').forEach((button) => button.addEventListener('click', () => {
-    state.activeTab = button.dataset.tab;
+    state.activeTab = SUPPORTED_TABS.has(button.dataset.tab) ? button.dataset.tab : 'signals';
     updateTabs();
     renderWorkspace();
     backgroundLoadForTab(state.activeTab);
@@ -1391,7 +1385,7 @@ function installTabs() {
 }
 
 function backgroundLoadForTab(tab) {
-  if (tab === 'chart') loadChart().then(renderWorkspace).catch(() => {});
+  if (tab === 'chart' && SUPPORTED_TABS.has(tab)) loadChart().then(renderWorkspace).catch(() => {});
 }
 
 function installKeyboard() {

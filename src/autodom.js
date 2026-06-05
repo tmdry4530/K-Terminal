@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { config } from './config.js';
+import { notifyImpactNewsPicks } from './notifications.js';
 
 // Thin proxy to the co-located auto-dom local trading bridge. The terminal is an
 // observer/cockpit: it reads status, runs side-effect-free previews, and can trip the
@@ -166,6 +167,7 @@ export async function recentSignals(limit = 50, inboxPath = config.autoDomInboxP
     const raw = await fs.readFile(absolute, 'utf8');
     const lines = raw.split(/\r?\n/).filter(Boolean);
     const signals = lines.slice(-limit).map(parseInboxLine).filter(Boolean).reverse();
+    notifyImpactNewsPicks(signals).catch((error) => console.error(`[impact-news-notify] ${error.message}`));
     return { configured: true, signals, source: absolute };
   } catch (error) {
     if (error.code === 'ENOENT') return { configured: true, signals: [], statusMessage: 'inbox 파일 없음 (아직 수신된 시그널 없음)', source: absolute };

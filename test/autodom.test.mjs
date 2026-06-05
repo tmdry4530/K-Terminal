@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { assessNewsTrade, normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
+import { formatImpactNewsMessage, pickImpactNewsNotifications } from '../src/notifications.js';
 
 test('parseInboxLine flattens the inbox envelope payload', () => {
   const published = new Date().toUTCString();
@@ -31,6 +32,24 @@ test('assessNewsTrade only allows real-time serious news for preview/review', ()
   assert.equal(assessNewsTrade({ symbol: 'SOLUSDT', direction: 'LONG', event_type: 'major_regulatory_action', verification_state: 'PROBABLE', confidence_score: 0.9, urgency_score: 0.9, evidence_summary: evidence }).status, 'NO_TRADE');
   assert.equal(assessNewsTrade({ symbol: 'ZECUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.95, urgency_score: 0.95, trade_allowed: true, evidence_summary: [{ summary: 'old incident | published=Thu, 04 Jun 2026 04:49:44 -0400' }] }).status, 'NO_TRADE');
   assert.equal(assessNewsTrade({ symbol: 'DOGEUSDT', rumor: true }).status, 'NO_TRADE');
+});
+
+test('impact-news notifications pick only preview/review candidates and format Telegram message', () => {
+  const published = new Date().toUTCString();
+  const preview = parseInboxLine(JSON.stringify({
+    received_at: new Date().toISOString(),
+    signal_id: 'notify-1',
+    payload: { symbol: 'ZECUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.96, urgency_score: 0.95, ttl_sec: 300, rumor: false, trade_allowed: true, evidence_summary: [{ source_type: 'official_project', source_label: 'Zcash', summary: `critical vuln confirmed | published=${published}`, url: 'https://example.com/zec' }] }
+  }));
+  const weak = parseInboxLine(JSON.stringify({ signal_id: 'weak', payload: { symbol: 'BTCUSDT', direction: 'LONG', event_type: 'major_regulatory_action' } }));
+  const picks = pickImpactNewsNotifications([weak, preview]);
+  assert.equal(picks.length, 1);
+  assert.equal(picks[0].signalId, 'notify-1');
+  const message = formatImpactNewsMessage(preview);
+  assert.match(message, /임팩트뉴스 \+ 코인픽/);
+  assert.match(message, /ZEC SHORT/);
+  assert.match(message, /critical vuln confirmed/);
+  assert.match(message, /https:\/\/example\.com\/zec/);
 });
 
 test('parseInboxLine tolerates a bare signal and rejects bad json', () => {
