@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { assessNewsTrade, normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
+import { assessNewsTrade, buildPaperPositionSummary, normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
 import { formatImpactNewsMessage, pickImpactNewsNotifications } from '../src/notifications.js';
 
 test('parseInboxLine flattens the inbox envelope payload', () => {
@@ -88,11 +88,26 @@ test('normalizeExecutionRecord parses a live_audit record', () => {
 });
 
 test('normalizeExecutionRecord parses a runtime submit_decision carrying the signal evidence', () => {
-  const r = normalizeExecutionRecord({ time: '2026-06-04T01:00:00Z', mode: 'paper', signal: { signal_id: 's2', symbol: 'ETHUSDT', direction: 'LONG', evidence_summary: [{ source_type: 'official', source_label: 'X', summary: 'y' }] }, outcome: 'ingested', response: { data: { risk_decision: 'approved', reasons: [] } } }, 'runtime');
+  const r = normalizeExecutionRecord({ time: '2026-06-04T01:00:00Z', mode: 'paper', signal: { signal_id: 's2', symbol: 'ETHUSDT', direction: 'LONG', evidence_summary: [{ source_type: 'official', source_label: 'X', summary: 'y' }] }, outcome: 'ingested', response: { data: { risk_decision: 'approved', reasons: [], paper_order: { symbol: 'ETHUSDT', side: 'BUY', quantity: '1', fill_price: '100', filled: true, filled_notional: '100' } } } }, 'runtime');
   assert.equal(r.source, 'paper');
   assert.equal(r.direction, 'LONG');
   assert.equal(r.decision, 'approved');
+  assert.equal(r.orderPreview.fill_price, '100');
   assert.equal(r.signal.evidence_summary.length, 1);
+});
+
+test('buildPaperPositionSummary calculates per-position and total paper PnL', () => {
+  const executions = [
+    normalizeExecutionRecord({ time: '2026-06-04T01:00:00Z', mode: 'paper', signal: { signal_id: 'long', symbol: 'BTCUSDT', direction: 'LONG' }, response: { data: { risk_decision: 'approved', paper_order: { execution_id: 'long-exec', symbol: 'BTCUSDT', side: 'BUY', quantity: '0.1', fill_price: '10000', filled: true, filled_notional: '1000' } } } }, 'runtime'),
+    normalizeExecutionRecord({ time: '2026-06-04T01:01:00Z', mode: 'paper', signal: { signal_id: 'short', symbol: 'ETHUSDT', direction: 'SHORT' }, response: { data: { risk_decision: 'approved', paper_order: { execution_id: 'short-exec', symbol: 'ETHUSDT', side: 'SELL', quantity: '2', fill_price: '2000', filled: true, filled_notional: '4000' } } } }, 'runtime')
+  ];
+  const paper = buildPaperPositionSummary(executions, { BTCUSDT: 11000, ETHUSDT: 1900 });
+  assert.equal(paper.summary.positionCount, 2);
+  assert.equal(paper.positions[0].unrealizedPnl, 100);
+  assert.equal(paper.positions[0].returnPct, 10);
+  assert.equal(paper.positions[1].unrealizedPnl, 200);
+  assert.equal(paper.summary.totalUnrealizedPnl, 300);
+  assert.equal(paper.summary.totalReturnPct, 6);
 });
 
 test('recentExecutions reads the live_audit JSONL tail newest-first', async () => {

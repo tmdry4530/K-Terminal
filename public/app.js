@@ -117,6 +117,12 @@ function signed(value, suffix = '') {
   return `${num > 0 ? '+' : ''}${fmt(num)}${suffix}`;
 }
 
+function money(value, digits = 2) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '데이터 없음';
+  const num = Number(value);
+  return `${num > 0 ? '+' : num < 0 ? '-' : ''}$${fmt(Math.abs(num), digits)}`;
+}
+
 function clsChange(value) {
   const num = Number(value);
   if (!Number.isFinite(num) || num === 0) return 'flat';
@@ -921,8 +927,22 @@ function renderPositions(body) {
     const host = $('#positions-body', body);
     if (!data.configured) { host.innerHTML = '<div class="muted">AUTO_DOM_LIVE_AUDIT_PATH / AUTO_DOM_AUDIT_ROOT 미설정</div>'; return; }
     const executions = data.executions || [];
-    if (!executions.length) { host.innerHTML = '<div class="muted">체결/실행 기록 없음</div>'; return; }
-    host.innerHTML = executions.map((e, index) => {
+    const paper = data.paper || { positions: [], summary: {} };
+    const summary = paper.summary || {};
+    const positions = paper.positions || [];
+    const summaryHtml = `<div class="metrics" style="grid-template-columns:repeat(4,minmax(0,1fr)); margin-bottom:8px">
+      <div class="metric"><div class="k">Paper 포지션</div><div class="v">${summary.positionCount ?? 0}</div></div>
+      <div class="metric"><div class="k">총 진입금액</div><div class="v">${money(summary.totalEntryNotional, 2)}</div></div>
+      <div class="metric"><div class="k">총 미실현손익</div><div class="v ${clsChange(summary.totalUnrealizedPnl)}">${money(summary.totalUnrealizedPnl, 2)}</div></div>
+      <div class="metric"><div class="k">총수익률</div><div class="v ${clsChange(summary.totalReturnPct)}">${chgText(summary.totalReturnPct)}</div></div>
+    </div>`;
+    const priceNote = summary.priceSource ? `<div class="muted" style="margin-bottom:8px">가격: ${escapeHtml(summary.priceSource)} · ${escapeHtml(formatKst(summary.updatedAt))} KST</div>` : '<div class="muted" style="margin-bottom:8px">체결된 paper fill 없음 또는 현재가 없음</div>';
+    const positionRows = positions.length ? positions.map((p) => `<tr>
+      <td class="left">${escapeHtml(p.symbol)} <span class="${p.direction === 'LONG' ? 'up' : 'down'}">${escapeHtml(p.direction)}</span></td>
+      <td>${fmt(p.quantity, 6)}</td><td>${money(p.entryPrice, 4)}</td><td>${money(p.currentPrice, 4)}</td>
+      <td>${money(p.entryNotional, 2)}</td><td class="${clsChange(p.unrealizedPnl)}">${money(p.unrealizedPnl, 2)}</td><td class="${clsChange(p.returnPct)}">${chgText(p.returnPct)}</td>
+    </tr>`).join('') : '<tr><td colspan="7" class="muted">체결된 paper 포지션 없음</td></tr>';
+    const executionsHtml = executions.length ? executions.map((e, index) => {
       const signal = e.signal || state.signals.find((s) => s.signalId === e.signalId)?.signal || null;
       const decClass = (e.decision === 'sent' || e.decision === 'approved') ? 'up' : e.decision === 'rejected' ? 'down' : 'flat';
       const decLabel = e.decision === 'ingested' ? '수신 (주문없음)' : (e.decision || '?'); // ingest_only: stored, not executed
@@ -935,7 +955,10 @@ function renderPositions(body) {
         <button class="pos-evidence-toggle" data-index="${index}">근거 보기 ▾</button>
         <div class="pos-evidence" data-index="${index}" style="display:none; margin-top:4px">${evidenceHtml(signal)}</div>
       </div>`;
-    }).join('');
+    }).join('') : '<div class="muted">체결/실행 기록 없음</div>';
+    host.innerHTML = `${summaryHtml}${priceNote}
+      <table><thead><tr><th class="left">포지션</th><th>수량</th><th>진입가</th><th>현재가</th><th>진입금액</th><th>미실현손익</th><th>수익률</th></tr></thead><tbody>${positionRows}</tbody></table>
+      <div style="border-top:1px solid var(--line); margin-top:10px; padding-top:8px"><strong>실행/게이트 기록</strong></div>${executionsHtml}`;
     $$('.pos-evidence-toggle', body).forEach((button) => button.addEventListener('click', () => {
       const panel = $$('.pos-evidence', body).find((el) => el.dataset.index === button.dataset.index);
       if (panel) { const shown = panel.style.display !== 'none'; panel.style.display = shown ? 'none' : ''; button.textContent = shown ? '근거 보기 ▾' : '근거 숨기기 ▴'; }

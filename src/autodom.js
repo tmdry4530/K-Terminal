@@ -73,8 +73,89 @@ export async function agentAction(action) {
   }
 }
 
+const BINANCE_FUTURES_TICKER_URL = 'https://fapi.binance.com/fapi/v1/ticker/price';
 const SERIOUS_NEWS_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'exchange_delisting_or_systemic_exchange_failure', 'war_level_global_macro_shock']);
 const REALTIME_NEWS_MAX_AGE_MS = 30 * 60 * 1000;
+
+function numberOrNull(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function orderFillFromExecution(execution) {
+  const order = execution?.orderPreview && typeof execution.orderPreview === 'object' ? execution.orderPreview : null;
+  if (!order || order.filled !== true) return null;
+  const quantity = numberOrNull(order.quantity ?? order.origQty ?? order.executedQty);
+  const entryPrice = numberOrNull(order.fill_price ?? order.avgPrice ?? order.price ?? order.limit_price);
+  const symbol = String(order.symbol || execution.symbol || '').toUpperCase();
+  const side = String(order.side || '').toUpperCase();
+  if (!symbol || !quantity || !entryPrice || !['BUY', 'SELL'].includes(side)) return null;
+  return {
+    id: String(order.execution_id || execution.signalId || `${symbol}:${execution.time || ''}`),
+    time: execution.time || null,
+    signalId: execution.signalId || null,
+    symbol,
+    side,
+    direction: side === 'BUY' ? 'LONG' : 'SHORT',
+    quantity,
+    entryPrice,
+    entryNotional: numberOrNull(order.filled_notional) ?? quantity * entryPrice,
+    source: execution.source || 'paper',
+    orderType: order.order_type || null,
+    signal: execution.signal || null
+  };
+}
+
+async function fetchBinanceFuturesPrices(symbols) {
+  const unique = [...new Set(symbols.filter(Boolean).map((s) => String(s).toUpperCase()))];
+  if (!unique.length) return {};
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(BINANCE_FUTURES_TICKER_URL, { signal: controller.signal, headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error(`Binance futures ticker HTTP ${response.status}`);
+    const rows = await response.json();
+    const prices = {};
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const symbol = String(row?.symbol || '').toUpperCase();
+      if (!unique.includes(symbol)) continue;
+      const price = numberOrNull(row?.price);
+      if (price !== null) prices[symbol] = price;
+    }
+    return prices;
+  } catch {
+    return {};
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function buildPaperPositionSummary(executions, prices = {}) {
+  const fills = (executions || []).map(orderFillFromExecution).filter(Boolean);
+  const positions = fills.map((fill) => {
+    const currentPrice = numberOrNull(prices[fill.symbol]);
+    const signed = fill.side === 'BUY' ? 1 : -1;
+    const unrealizedPnl = currentPrice !== null ? (currentPrice - fill.entryPrice) * fill.quantity * signed : null;
+    const returnPct = unrealizedPnl !== null && fill.entryNotional ? (unrealizedPnl / fill.entryNotional) * 100 : null;
+    return { ...fill, currentPrice, unrealizedPnl, returnPct };
+  });
+  const totalEntryNotional = positions.reduce((sum, p) => sum + (p.entryNotional || 0), 0);
+  const priced = positions.filter((p) => p.currentPrice !== null);
+  const totalUnrealizedPnl = priced.reduce((sum, p) => sum + (p.unrealizedPnl || 0), 0);
+  return {
+    mode: 'paper',
+    positions,
+    summary: {
+      positionCount: positions.length,
+      pricedCount: priced.length,
+      totalEntryNotional,
+      totalUnrealizedPnl: priced.length ? totalUnrealizedPnl : null,
+      totalReturnPct: priced.length && totalEntryNotional ? (totalUnrealizedPnl / totalEntryNotional) * 100 : null,
+      priceSource: priced.length ? 'Binance USDⓈ-M futures public ticker' : null,
+      updatedAt: new Date().toISOString()
+    }
+  };
+}
 
 function evidencePublishedAtMs(signal) {
   const evidence = Array.isArray(signal?.evidence_summary) ? signal.evidence_summary : [];
@@ -207,7 +288,7 @@ export function normalizeExecutionRecord(record, source = 'live') {
     direction: signal?.direction || null,
     decision: data.risk_decision || data.decision || record.outcome || null,
     reasons: data.reasons || data.rejection_reasons || [],
-    orderPreview: data.execution_result || data.paper_order || data.order || null,
+    orderPreview: data.paper_order || record.paper_order || data.execution_result || data.order || null,
     signal
   };
 }
@@ -255,5 +336,7 @@ export async function recentExecutions(limit = 40, { liveAuditPath = config.auto
       return true;
     })
     .slice(0, limit);
-  return { configured: Boolean(liveAuditPath || auditRoot), executions };
+  const fills = executions.map(orderFillFromExecution).filter(Boolean);
+  const prices = await fetchBinanceFuturesPrices(fills.map((fill) => fill.symbol));
+  return { configured: Boolean(liveAuditPath || auditRoot), executions, paper: buildPaperPositionSummary(executions, prices) };
 }
