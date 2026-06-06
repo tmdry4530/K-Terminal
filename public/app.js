@@ -156,6 +156,25 @@ function extLink(url, label, extraClass = '') {
     : `<span${cls}>${escapeHtml(label)}</span>`;
 }
 
+const KST_TIME_ZONE = 'Asia/Seoul';
+
+function parseTimeValue(value) {
+  const time = value instanceof Date ? value.getTime() : Date.parse(value || '');
+  return Number.isFinite(time) ? new Date(time) : null;
+}
+
+function formatKst(value, options = {}) {
+  const date = parseTimeValue(value);
+  if (!date) return '시간 없음';
+  const { dateOnly = false, timeOnly = false, seconds = true } = options;
+  const base = dateOnly
+    ? { year: 'numeric', month: '2-digit', day: '2-digit' }
+    : timeOnly
+      ? { hour: '2-digit', minute: '2-digit', ...(seconds ? { second: '2-digit' } : {}) }
+      : { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', ...(seconds ? { second: '2-digit' } : {}) };
+  return new Intl.DateTimeFormat('ko-KR', { ...base, hour12: false, timeZone: KST_TIME_ZONE }).format(date).replace(/\.$/, '');
+}
+
 function statusBadge(status, message = '') {
   const text = escapeHtml(status || '데이터 없음');
   const statusClass = status === '실시간' || status === '근실시간' || status === '정상' ? 'ok' : status === '지연 데이터' || status === 'API 필요' || status === '일부 가격 데이터 없음' ? 'warn' : 'err';
@@ -649,7 +668,7 @@ function renderSignals(body) {
       ${signals.map((s) => {
         const trade = newsTradeView(s);
         return `<tr class="signal-row ${isImportantSignal(s) ? 'signal-important' : ''} ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}" title="${escapeHtml(trade.reasons.join(', '))}">
-        <td class="left">${escapeHtml(String(s.receivedAt || '').slice(11, 19))}</td>
+        <td class="left">${escapeHtml(formatKst(s.receivedAt, { timeOnly: true }))}</td>
         <td class="left">${isImportantSignal(s) ? '★ ' : ''}${escapeHtml(s.symbol || '')}</td>
         <td class="${s.direction === 'LONG' ? 'up' : s.direction === 'SHORT' ? 'down' : 'flat'}">${s.direction === 'LONG' ? '▲ LONG' : s.direction === 'SHORT' ? '▼ SHORT' : escapeHtml(s.direction || '')}</td>
         <td class="left">${escapeHtml((s.eventType || '').replace(/_/g, ' '))}</td>
@@ -912,7 +931,7 @@ function renderPositions(body) {
           <span><strong>${escapeHtml(e.symbol || '?')}</strong> ${e.direction ? `<span class="${e.direction === 'LONG' ? 'up' : 'down'}">${escapeHtml(e.direction)}</span>` : ''}</span>
           <span class="${decClass}">${escapeHtml(decLabel)} <span class="badge">${escapeHtml(e.source)}</span></span>
         </div>
-        <div class="muted">${escapeHtml(String(e.time || '').replace('T', ' ').slice(0, 19))}${e.reasons?.length ? ' · ' + escapeHtml(e.reasons.join(', ')) : ''}</div>
+        <div class="muted">${escapeHtml(formatKst(e.time))}${e.reasons?.length ? ' · ' + escapeHtml(e.reasons.join(', ')) : ''}</div>
         <button class="pos-evidence-toggle" data-index="${index}">근거 보기 ▾</button>
         <div class="pos-evidence" data-index="${index}" style="display:none; margin-top:4px">${evidenceHtml(signal)}</div>
       </div>`;
@@ -1056,7 +1075,7 @@ function drawPriceChart(svg, candles, readout, viewH = 330) {
     crosshair.setAttribute('x1', x(i));
     crosshair.setAttribute('x2', x(i));
     crosshair.style.display = '';
-    if (readout) readout.textContent = `${String(bar.time).slice(0, 10)} O ${fmt(bar.open)} H ${fmt(bar.high)} L ${fmt(bar.low)} C ${fmt(bar.close)} V ${fmt(bar.volume, 0)}`;
+    if (readout) readout.textContent = `${formatKst(bar.time, { dateOnly: state.interval !== '1D', seconds: false })} KST O ${fmt(bar.open)} H ${fmt(bar.high)} L ${fmt(bar.low)} C ${fmt(bar.close)} V ${fmt(bar.volume, 0)}`;
   };
   svg.onmouseleave = () => { crosshair.style.display = 'none'; if (readout) readout.textContent = ''; };
 }
@@ -1299,7 +1318,7 @@ function renderAlerts(body) {
       ${alerts.map((alert) => `<tr>
         <td class="left">${escapeHtml(alert.symbol)}</td>
         <td>${escapeHtml(alertCondLabel(alert))}</td>
-        <td>${alert.enabled ? (alert.triggeredAt ? statusBadge('발동', alert.triggeredAt) : statusBadge('대기')) : statusBadge('중지')}</td>
+        <td>${alert.enabled ? (alert.triggeredAt ? statusBadge('발동', `${formatKst(alert.triggeredAt)} KST`) : statusBadge('대기')) : statusBadge('중지')}</td>
         <td><button data-id="${escapeHtml(alert.id)}" class="alert-toggle">${alert.enabled ? 'OFF' : 'ON'}</button> <button data-id="${escapeHtml(alert.id)}" class="alert-del">DEL</button></td>
       </tr>`).join('') || '<tr><td>알림 없음</td><td colspan="3"></td></tr>'}
       </tbody></table>
@@ -1470,7 +1489,7 @@ function restorePanelWidths() {
 
 function tickClock() {
   const now = new Date();
-  $('#clock').textContent = now.toLocaleTimeString('ko-KR', { hour12: false });
+  $('#clock').textContent = `${formatKst(now, { timeOnly: true })} KST`;
 }
 
 async function init() {
