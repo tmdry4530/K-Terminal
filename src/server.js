@@ -142,9 +142,19 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
+function healthPayload() {
+  return { ok: true, service: 'k-terminal-finance', time: new Date().toISOString(), version: '1.0.0' };
+}
+
 async function routeApi(req, res, url) {
   const pathname = url.pathname;
   const method = req.method || 'GET';
+
+  // Health probes are read-only and must stay cheap/unauthenticated for launchd/Tailnet/Router.
+  if (method === 'GET' && (pathname === '/health' || pathname === '/api/health')) {
+    sendJson(res, 200, healthPayload());
+    return;
+  }
 
   // CSRF defense-in-depth: reject cross-origin state-changing requests.
   if (!sameOriginOk(req)) {
@@ -170,11 +180,6 @@ async function routeApi(req, res, url) {
 
   const user = await getCurrentUser(req);
   const userApiKeys = getUserApiKeys(user);
-
-  if (method === 'GET' && pathname === '/api/health') {
-    sendJson(res, 200, { ok: true, service: 'k-terminal-finance', time: new Date().toISOString(), version: '1.0.0' });
-    return;
-  }
 
   if (method === 'GET' && pathname === '/api/meta') {
     sendJson(res, 200, {
@@ -328,7 +333,7 @@ async function handler(req, res) {
   try {
     applySecurityHeaders(res, { secure: config.cookieSecure });
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname === '/health' || url.pathname.startsWith('/api/')) {
       await routeApi(req, res, url);
     } else {
       await serveStatic(req, res, url.pathname);

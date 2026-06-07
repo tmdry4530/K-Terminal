@@ -27,7 +27,9 @@ try {
     await wait(100);
   }
   const health = await fetchJson('/api/health');
-  if (!health.ok) throw new Error('health failed');
+  if (!health.ok) throw new Error('api health failed');
+  const rootHealth = await fetchJson('/health');
+  if (!rootHealth.ok || rootHealth.service !== 'k-terminal-finance') throw new Error('root health failed');
   const meta = await fetchJson('/api/meta');
   if (meta.app !== 'K Terminal Finance') throw new Error('meta failed');
   const chart = await fetchJson('/api/market/chart?symbol=AAPL&range=1M&interval=1D');
