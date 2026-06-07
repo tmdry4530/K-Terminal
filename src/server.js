@@ -108,6 +108,12 @@ function getUserApiKeys(user) {
 }
 
 async function serveStatic(req, res, pathname) {
+  if (pathname === '/favicon.ico') {
+    res.writeHead(204, { 'cache-control': 'public, max-age=86400' });
+    res.end();
+    return;
+  }
+
   let filePath = pathname === '/' ? '/index.html' : pathname;
   try {
     filePath = decodeURIComponent(filePath);
