@@ -153,6 +153,15 @@ kbd { font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; backg
 .signal-row.signal-active td { background: rgba(127,104,255,.16); }
 .signal-row.signal-important td:first-child { box-shadow: inset 2px 0 0 var(--amber); }
 .signal-row.signal-important td:nth-child(2) { color: #ffd98a; }
+.signal-feed-head { display: grid; gap: 3px; margin-bottom: 7px; }
+.signal-feed { display: grid; gap: 7px; }
+.signal-news-card { width: 100%; text-align: left; display: grid; gap: 5px; padding: 9px; background: linear-gradient(180deg, #0b1218, #060a0e); border: 1px solid var(--line); border-left: 3px solid var(--line-strong); border-radius: 6px; color: var(--text); }
+.signal-news-card:hover, .signal-news-card.signal-active { border-color: var(--accent); border-left-color: var(--accent); background: #101923; }
+.signal-news-card.signal-important { border-left-color: var(--amber); }
+.signal-news-top, .signal-news-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.signal-news-title { font-size: 13px; line-height: 1.35; font-weight: 750; color: var(--text); }
+.signal-news-source, .signal-news-summary, .signal-news-link { color: var(--muted); font-size: 11px; line-height: 1.35; }
+.signal-news-summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .gate-mode.err { animation: none; } }
 
 .evidence { display: grid; gap: 5px; max-height: 240px; overflow: auto; }

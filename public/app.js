@@ -32,9 +32,9 @@ const DEFAULT_VIEWS = {
     right: ['alerts', 'data-sources']
   },
   signals: {
-    left: ['signals', 'watchlist'],
+    left: ['signals'],
     center: ['execution-gate', 'news-recommendations'],
-    right: ['positions', 'alerts']
+    right: ['positions']
   }
 };
 
@@ -62,9 +62,16 @@ function sanitizePanelWidgets(widgets = []) {
   return widgets.filter(isRenderableWidget);
 }
 
+const TAB_WIDGET_DENYLIST = {
+  // Keep the signal cockpit focused on agent-collected news + gates.
+  // Watchlist/alerts live in the combined 시장/차트 route.
+  signals: new Set(['watchlist', 'alerts'])
+};
+
 function normalizeWidgetsForTab(tab, widgets = []) {
+  const denied = TAB_WIDGET_DENYLIST[tab] || new Set();
   const mapped = widgets.map((widgetId) => (tab === 'signals' && widgetId === 'chart' ? 'news-recommendations' : widgetId));
-  return [...new Set(mapped)].filter(isRenderableWidget);
+  return [...new Set(mapped)].filter((widgetId) => isRenderableWidget(widgetId) && !denied.has(widgetId));
 }
 
 function loadLayout() {
@@ -670,23 +677,37 @@ function renderSignals(body) {
     return;
   }
   body.innerHTML = `
-    <div class="scroll"><table class="table"><thead><tr><th>Time</th><th>Symbol</th><th>Dir</th><th>Event</th><th>Verify</th><th>Conf</th><th>Urg</th><th>Trade</th><th>TTL</th></tr></thead><tbody>
+    <div class="signal-feed-head">
+      <div><strong>에이전트 수집 뉴스</strong> <span class="muted">${signals.length}건 · 최신순</span></div>
+      <div class="muted">Crypto Signal이 inbox로 넘긴 뉴스/근거를 필터 없이 펼쳐 표시합니다.</div>
+    </div>
+    <div class="scroll signal-feed">
       ${signals.map((s) => {
         const trade = newsTradeView(s);
-        return `<tr class="signal-row ${isImportantSignal(s) ? 'signal-important' : ''} ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}" title="${escapeHtml(trade.reasons.join(', '))}">
-        <td class="left">${escapeHtml(formatKst(s.receivedAt, { timeOnly: true }))}</td>
-        <td class="left">${isImportantSignal(s) ? '★ ' : ''}${escapeHtml(s.symbol || '')}</td>
-        <td class="${s.direction === 'LONG' ? 'up' : s.direction === 'SHORT' ? 'down' : 'flat'}">${s.direction === 'LONG' ? '▲ LONG' : s.direction === 'SHORT' ? '▼ SHORT' : escapeHtml(s.direction || '')}</td>
-        <td class="left">${escapeHtml((s.eventType || '').replace(/_/g, ' '))}</td>
-        <td><span class="badge ${signalVerifyClass(s.verificationState)}">${escapeHtml(s.verificationState || '?')}${s.rumor ? ' · rumor' : ''}</span></td>
-        <td>${s.confidenceScore != null ? s.confidenceScore.toFixed(2) : '-'}</td>
-        <td>${s.urgencyScore != null ? s.urgencyScore.toFixed(2) : '-'}</td>
-        <td><span class="badge ${trade.className}">${escapeHtml(trade.label)}</span></td>
-        <td>${s.ttlSec != null ? s.ttlSec + 's' : '-'}</td>
-      </tr>`; }).join('')}
-    </tbody></table></div>
-    <div class="muted" style="margin-top:6px">뉴스매매 판정: 프리뷰대상=검증·신뢰·긴급도 통과 후 auto-dom preview 가능. 터미널은 주문을 개시하지 않습니다.</div>`;
-  $$('.signal-row', body).forEach((row) => row.addEventListener('click', () => selectSignal(row.dataset.signalId)));
+        const evidence = Array.isArray(s.signal?.evidence_summary) ? s.signal.evidence_summary : [];
+        const primary = evidence[0] || {};
+        const title = cleanNewsHeadline(primary.summary || s.signal?.title || s.eventType || '수집 뉴스');
+        const source = primary.source_label || primary.source_type || s.signal?.source || s.signal?.collector || 'source';
+        const evidenceCount = evidence.length;
+        return `<button class="signal-news-card ${isImportantSignal(s) ? 'signal-important' : ''} ${state.activeSignal?.signalId === s.signalId ? 'signal-active' : ''}" data-signal-id="${escapeHtml(s.signalId || '')}" title="${escapeHtml(trade.reasons.join(', '))}">
+          <div class="signal-news-top">
+            <span class="muted">${escapeHtml(formatKst(s.receivedAt, { timeOnly: true }))} KST</span>
+            <span class="badge ${signalVerifyClass(s.verificationState)}">${escapeHtml(s.verificationState || '?')}${s.rumor ? ' · rumor' : ''}</span>
+            <span class="badge ${trade.className}">${escapeHtml(trade.label)}</span>
+          </div>
+          <div class="signal-news-title">${isImportantSignal(s) ? '★ ' : ''}${escapeHtml(title)}</div>
+          <div class="signal-news-meta">
+            <strong>${escapeHtml(s.symbol || 'SYMBOL?')}</strong>
+            <span class="${s.direction === 'LONG' ? 'up' : s.direction === 'SHORT' ? 'down' : 'flat'}">${s.direction === 'LONG' ? '▲ LONG' : s.direction === 'SHORT' ? '▼ SHORT' : escapeHtml(s.direction || 'WATCH')}</span>
+            <span>${escapeHtml((s.eventType || '').replace(/_/g, ' '))}</span>
+          </div>
+          <div class="signal-news-source">${escapeHtml(source)} · 근거 ${evidenceCount}개 · conf ${s.confidenceScore != null ? s.confidenceScore.toFixed(2) : '-'} · urg ${s.urgencyScore != null ? s.urgencyScore.toFixed(2) : '-'}</div>
+          <div class="signal-news-summary">${escapeHtml(primary.summary || '근거 요약 없음')}</div>
+          ${primary.url ? `<div class="signal-news-link">${extLink(primary.url, '출처 보기 →')}</div>` : ''}
+        </button>`; }).join('')}
+    </div>
+    <div class="muted" style="margin-top:6px">선택하면 EXECUTION GATE에서 전체 근거와 preview 판정을 확인합니다. 터미널은 주문을 개시하지 않습니다.</div>`;
+  $$('.signal-news-card', body).forEach((row) => row.addEventListener('click', () => selectSignal(row.dataset.signalId)));
 }
 
 function decisionBadge(decision) {
