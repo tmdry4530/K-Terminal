@@ -166,6 +166,19 @@ function evidencePublishedAtMs(signal) {
   return Number.isFinite(time) ? time : null;
 }
 
+export function isOperatorSuppressedSignal(signalLike) {
+  const signal = signalLike?.signal && typeof signalLike.signal === 'object' ? signalLike.signal : signalLike;
+  const evidence = Array.isArray(signal?.evidence_summary) ? signal.evidence_summary : [];
+  const text = [
+    signalLike?.source,
+    signalLike?.monitored_account,
+    signal?.source,
+    signal?.signal_id,
+    ...evidence.flatMap((item) => [item?.source_label, item?.source_type, item?.summary, item?.url])
+  ].filter(Boolean).join(' ').toLowerCase();
+  return /\bwhale[_\s-]?alert\b/.test(text) || /@whale_alert\b/.test(text);
+}
+
 function signalFreshEnough(signalLike, signal) {
   const candidates = [evidencePublishedAtMs(signal), Date.parse(signalLike?.receivedAt || ''), Date.parse(signal?.generated_at || ''), Date.parse(signal?.first_detected_at || '')];
   const time = candidates.find((value) => Number.isFinite(value));
@@ -247,7 +260,7 @@ export async function recentSignals(limit = 50, inboxPath = config.autoDomInboxP
   try {
     const raw = await fs.readFile(absolute, 'utf8');
     const lines = raw.split(/\r?\n/).filter(Boolean);
-    const signals = lines.slice(-limit).map(parseInboxLine).filter(Boolean).reverse();
+    const signals = lines.slice(-limit * 3).map(parseInboxLine).filter(Boolean).filter((signal) => !isOperatorSuppressedSignal(signal)).reverse().slice(0, limit);
     notifyImpactNewsPicks(signals).catch((error) => console.error(`[impact-news-notify] ${error.message}`));
     return { configured: true, signals, source: absolute };
   } catch (error) {

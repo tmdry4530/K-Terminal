@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { assessNewsTrade, buildPaperPositionSummary, normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
+import { assessNewsTrade, buildPaperPositionSummary, isOperatorSuppressedSignal, normalizeExecutionRecord, parseInboxLine, recentExecutions, recentSignals } from '../src/autodom.js';
 import { formatImpactNewsMessage, pickImpactNewsNotifications } from '../src/notifications.js';
 
 test('parseInboxLine flattens the inbox envelope payload', () => {
@@ -71,6 +71,25 @@ test('recentSignals reads the JSONL tail newest-first', async () => {
   assert.equal(result.signals.length, 2);
   assert.equal(result.signals[0].signalId, 'b'); // newest first
   assert.equal(result.signals[1].symbol, 'BTCUSDT');
+});
+
+test('recentSignals suppresses Whale Alert transfer-noise from the cockpit feed', async () => {
+  const whale = parseInboxLine(JSON.stringify({
+    received_at: '2026-04-22T09:02:00Z',
+    signal_id: 'whale',
+    payload: { symbol: 'ETHUSDT', direction: 'SHORT', evidence_summary: [{ source_label: 'X Browser CDP', summary: 'Whale Alert 인증된 계정 @whale_alert 500,000,000 USDT transferred from Binance to Tether Treasury' }] }
+  }));
+  assert.equal(isOperatorSuppressedSignal(whale), true);
+
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'kt-inbox-'));
+  const file = path.join(dir, 'inbox.jsonl');
+  await fs.writeFile(file, `${[
+    JSON.stringify({ received_at: '2026-04-22T09:00:00Z', signal_id: 'good', payload: { symbol: 'BTCUSDT', direction: 'LONG', evidence_summary: [{ source_label: 'WuBlockchain', summary: 'Syscoin bridge incident confirmed' }] } }),
+    JSON.stringify({ received_at: '2026-04-22T09:02:00Z', signal_id: 'whale', payload: whale.signal })
+  ].join('\n')}\n`);
+  const result = await recentSignals(10, file);
+  assert.equal(result.signals.length, 1);
+  assert.equal(result.signals[0].signalId, 'good');
 });
 
 test('recentSignals reports not-configured when no inbox path is set', async () => {
