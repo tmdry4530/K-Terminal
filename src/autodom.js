@@ -161,11 +161,19 @@ export function buildPaperPositionSummary(executions, prices = {}) {
 
 function evidencePublishedAtMs(signal) {
   const evidence = Array.isArray(signal?.evidence_summary) ? signal.evidence_summary : [];
-  const summary = evidence.find((item) => item?.summary)?.summary || '';
-  const match = String(summary).match(/published=([^|]+)$/i);
-  if (!match) return null;
-  const time = Date.parse(match[1].trim());
-  return Number.isFinite(time) ? time : null;
+  for (const item of evidence) {
+    for (const value of [item?.publisher_ts, item?.publisherTs, item?.published_at, item?.publishedAt]) {
+      const time = Date.parse(value || '');
+      if (Number.isFinite(time)) return time;
+    }
+    const summary = item?.summary || '';
+    const match = String(summary).match(/published=([^|]+)$/i);
+    if (match) {
+      const time = Date.parse(match[1].trim());
+      if (Number.isFinite(time)) return time;
+    }
+  }
+  return null;
 }
 
 export function isOperatorSuppressedSignal(signalLike) {
@@ -182,7 +190,11 @@ export function isOperatorSuppressedSignal(signalLike) {
 }
 
 function signalFreshEnough(signalLike, signal) {
-  const candidates = [evidencePublishedAtMs(signal), Date.parse(signalLike?.receivedAt || ''), Date.parse(signal?.generated_at || ''), Date.parse(signal?.first_detected_at || '')];
+  const evidence = Array.isArray(signal?.evidence_summary) ? signal.evidence_summary : [];
+  const hasDefillamaHackRecord = evidence.some((item) => /defillama hacks/i.test(String(item?.source_label || '')) || /defillama hack record/i.test(String(item?.summary || '')));
+  const publishedAt = evidencePublishedAtMs(signal);
+  if (hasDefillamaHackRecord && !Number.isFinite(publishedAt)) return false;
+  const candidates = [publishedAt, Date.parse(signalLike?.receivedAt || ''), Date.parse(signal?.generated_at || ''), Date.parse(signal?.first_detected_at || '')];
   const time = candidates.find((value) => Number.isFinite(value));
   if (!Number.isFinite(time)) return false;
   return Date.now() - time <= REALTIME_NEWS_MAX_AGE_MS;
