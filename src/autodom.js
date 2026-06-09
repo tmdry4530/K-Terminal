@@ -76,6 +76,8 @@ export async function agentAction(action) {
 const BINANCE_FUTURES_TICKER_URL = 'https://fapi.binance.com/fapi/v1/ticker/price';
 const SERIOUS_NEWS_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'exchange_delisting_or_systemic_exchange_failure', 'war_level_global_macro_shock']);
 const REALTIME_NEWS_MAX_AGE_MS = 30 * 60 * 1000;
+const MAJOR_PROXY_SYMBOLS = new Set(['BTCUSDT', 'ETHUSDT']);
+const SYMBOL_SPECIFIC_NEWS_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'chain_halt_or_network_outage', 'exchange_listing_or_major_integration']);
 
 function numberOrNull(value) {
   const parsed = Number(value);
@@ -186,6 +188,23 @@ function signalFreshEnough(signalLike, signal) {
   return Date.now() - time <= REALTIME_NEWS_MAX_AGE_MS;
 }
 
+function signalEvidenceText(signal) {
+  const evidence = Array.isArray(signal?.evidence_summary) ? signal.evidence_summary : [];
+  return evidence.map((item) => `${item?.summary || ''} ${item?.source_label || ''} ${item?.url || ''}`).join(' ');
+}
+
+function isMajorProxyMisdirection(signalLike, signal) {
+  const symbol = String(signalLike?.symbol || signal?.symbol || '').toUpperCase();
+  const eventType = String(signalLike?.eventType || signal?.event_type || '');
+  if (!MAJOR_PROXY_SYMBOLS.has(symbol) || !SYMBOL_SPECIFIC_NEWS_EVENTS.has(eventType)) return false;
+  const text = signalEvidenceText(signal);
+  if (/humanity protocol|\$H\b/i.test(text)) return true;
+  const directContext = symbol === 'ETHUSDT'
+    ? /ethereum (network|mainnet|protocol|chain)|eth mainnet/i
+    : /bitcoin (network|core|protocol|chain)|btc network/i;
+  return !directContext.test(text);
+}
+
 export function assessNewsTrade(signalLike) {
   const signal = signalLike?.signal && typeof signalLike.signal === 'object' ? signalLike.signal : signalLike;
   if (!signal || typeof signal !== 'object') {
@@ -212,8 +231,9 @@ export function assessNewsTrade(signalLike) {
   if (!seriousNews) reasons.push('심각뉴스 기준 미달');
   if (!fresh) reasons.push('실시간성 부족');
   if (tradeAllowed === false) reasons.push('trade_allowed=false');
+  if (isMajorProxyMisdirection(signalLike, signal)) reasons.push('BTC/ETH 프록시 오판 차단');
 
-  const coreReady = signal.symbol && signal.direction && !signal.rumor && (ttl == null || ttl > 0) && evidence.length > 0 && seriousNews && fresh;
+  const coreReady = signal.symbol && signal.direction && !signal.rumor && (ttl == null || ttl > 0) && evidence.length > 0 && seriousNews && fresh && !isMajorProxyMisdirection(signalLike, signal);
   const previewReady = coreReady && verification === 'VERIFIED' && confidence >= 0.90 && urgency >= 0.85 && tradeAllowed === true;
   if (previewReady) return { status: 'PREVIEW_READY', label: '프리뷰대상', className: 'ok', reasons: ['실시간 심각뉴스·검증·신뢰·긴급도 통과'] };
 

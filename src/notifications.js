@@ -6,6 +6,29 @@ import { config } from './config.js';
 
 const execFileAsync = promisify(execFile);
 const NOTIFY_STATUSES = new Set(['PREVIEW_READY', 'GATE_REVIEW']);
+const MAJOR_PROXY_SYMBOLS = new Set(['BTCUSDT', 'ETHUSDT']);
+const SYMBOL_SPECIFIC_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'chain_halt_or_network_outage', 'exchange_listing_or_major_integration']);
+const UNSUPPORTED_PROTOCOL_PATTERNS = [/humanity protocol/i, /\$H/i];
+
+function evidenceText(signalLike) {
+  const signal = signalLike?.signal && typeof signalLike.signal === 'object' ? signalLike.signal : signalLike;
+  const evidence = Array.isArray(signal?.evidence_summary) ? signal.evidence_summary : [];
+  return evidence.map((item) => `${item?.summary || ''} ${item?.source_label || ''} ${item?.url || ''}`).join(' ');
+}
+
+function isMajorProxyMisdirection(signalLike) {
+  const signal = signalLike?.signal && typeof signalLike.signal === 'object' ? signalLike.signal : signalLike;
+  const symbol = String(signalLike?.symbol || signal?.symbol || '').toUpperCase();
+  const eventType = String(signalLike?.eventType || signal?.event_type || '');
+  if (!MAJOR_PROXY_SYMBOLS.has(symbol) || !SYMBOL_SPECIFIC_EVENTS.has(eventType)) return false;
+  const text = evidenceText(signalLike);
+  if (UNSUPPORTED_PROTOCOL_PATTERNS.some((pattern) => pattern.test(text))) return true;
+  const directContext = symbol === 'ETHUSDT'
+    ? /ethereum (network|mainnet|protocol|chain)|eth mainnet/i
+    : /bitcoin (network|core|protocol|chain)|btc network/i;
+  return !directContext.test(text);
+}
+
 
 function resolvePath(p) {
   return path.isAbsolute(p) ? p : path.resolve(config.rootDir, p);
@@ -39,6 +62,7 @@ function notificationKey(signalLike) {
 export function pickImpactNewsNotifications(signals, limit = 3) {
   return (signals || [])
     .filter((item) => NOTIFY_STATUSES.has(item?.newsTrade?.status))
+    .filter((item) => !isMajorProxyMisdirection(item))
     .sort((a, b) => {
       const statusA = a.newsTrade.status === 'PREVIEW_READY' ? 1 : 0;
       const statusB = b.newsTrade.status === 'PREVIEW_READY' ? 1 : 0;

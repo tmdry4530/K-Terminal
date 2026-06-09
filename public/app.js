@@ -32,9 +32,9 @@ const DEFAULT_VIEWS = {
     right: ['alerts', 'data-sources']
   },
   signals: {
-    left: ['signals'],
-    center: ['execution-gate', 'news-recommendations'],
-    right: ['positions']
+    left: ['signals', 'fast-alpha'],
+    center: ['execution-gate', 'news-recommendations', 'paper-probes', 'quality-report'],
+    right: ['positions', 'paper-readiness', 'sources-health', 'incident-clusters', 'replay-fixtures']
   }
 };
 
@@ -47,7 +47,14 @@ const WIDGETS = {
   signals: { title: 'SIGNALS', subtitle: 'Crypto Signal 후보', render: renderSignals, big: true },
   'execution-gate': { title: 'EXECUTION GATE', subtitle: 'auto-dom 브릿지', render: renderExecutionGate, big: true },
   'news-recommendations': { title: 'LIVE IMPACT NEWS + COIN PICKS', subtitle: '실시간 고파급 뉴스 최대 3개', render: renderNewsRecommendations, big: true },
-  positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true }
+  positions: { title: 'POSITIONS / 실행', subtitle: '체결 + 근거', render: renderPositions, big: true },
+  'fast-alpha': { title: 'FAST ALPHA', subtitle: 'Early event / why shown', render: renderFastAlpha, big: true },
+  'paper-probes': { title: 'PAPER PROBES', subtitle: 'mainnet shadow paper', render: renderPaperProbes, big: true },
+  'paper-readiness': { title: 'READINESS', subtitle: 'paper → micro_live', render: renderPaperReadiness, big: true },
+  'quality-report': { title: 'QUALITY', subtitle: '24h Fast Alpha metrics', render: renderQualityReport, big: true },
+  'sources-health': { title: 'SOURCES', subtitle: 'collector down vs no-news', render: renderSourcesHealth, big: true },
+  'incident-clusters': { title: 'INCIDENTS', subtitle: 'duplicate probe guard', render: renderIncidentClusters, big: true },
+  'replay-fixtures': { title: 'REPLAY / FIXTURES', subtitle: 'why blocked / upgrade condition', render: renderReplayFixtures, big: true }
 };
 
 // Widgets removed from the panel surface (legacy, or moved elsewhere e.g. settings → header
@@ -781,6 +788,111 @@ function renderExecutionGate(body) {
       out.innerHTML = `${decisionBadge('오류')} ${escapeHtml(error.message)}`;
     }
   });
+}
+
+function ensureAutodomPanel(body, label = 'auto-dom') {
+  if (!state.autodom) {
+    body.innerHTML = `<div class="muted">${escapeHtml(label)} 로딩 중...</div>`;
+    loadAutodom().then(renderWorkspace).catch(() => {});
+    return null;
+  }
+  return state.autodom.dashboard?.snapshot || {};
+}
+
+function renderFastAlpha(body) {
+  const snap = ensureAutodomPanel(body, 'Fast Alpha');
+  if (!snap) return;
+  const report = snap.quality_report || {};
+  const probes = snap.paper_probes || {};
+  const latest = Array.isArray(probes.latest_probes) ? probes.latest_probes : [];
+  body.innerHTML = `
+    <div class="grid2">
+      <div class="metric"><div class="k">Fast Alpha candidates</div><div class="v">${escapeHtml(report.fast_alpha_candidate_count ?? 0)}</div></div>
+      <div class="metric"><div class="k">Early confirmed</div><div class="v">${escapeHtml(report.early_confirmed_count ?? 0)}</div></div>
+      <div class="metric"><div class="k">Paper opened</div><div class="v up">${escapeHtml(report.paper_probe_opened_count ?? probes.total_probes ?? 0)}</div></div>
+      <div class="metric"><div class="k">Chase blocks</div><div class="v warn">${escapeHtml(report.chase_block_count ?? 0)}</div></div>
+    </div>
+    <div class="muted" style="margin-top:8px">Agent는 signal payload만 제출합니다. paper/live/micro_live eligibility는 deterministic bridge가 재계산합니다.</div>
+    <div class="scroll" style="margin-top:8px">${latest.map((p) => `<div class="signal-news-card">
+      <div class="signal-news-top"><span class="badge ok">${escapeHtml(p.state_at_entry || p.lifecycle_state || 'PROBE')}</span><span class="muted">${escapeHtml(formatKst(p.timestamp || p.opened_at))}</span></div>
+      <div class="signal-news-title">${escapeHtml(p.asset || p.symbol || '?')} · ${escapeHtml(p.direction || '?')} · ${escapeHtml(p.event_type || '?')}</div>
+      <div class="signal-news-source">why shown: ${escapeHtml(p.source_id || 'source contract passed')} · gate ${escapeHtml(p.market_reaction_gate_passed ?? p.market_reaction_snapshot?.market_reaction_gate_passed ?? 'unknown')}</div>
+      <div class="signal-news-summary">upgrade condition: ${escapeHtml(p.upgrade_condition || 'PROBABLE/VERIFIED update required')} · TTL ${escapeHtml(p.ttl_sec ?? '-')}s · exit ${escapeHtml(p.exit_if_not_upgraded_sec ?? '-')}s</div>
+    </div>`).join('') || '<div class="muted">아직 Fast Alpha paper probe가 없습니다.</div>'}</div>`;
+}
+
+function renderPaperProbes(body) {
+  const snap = ensureAutodomPanel(body, 'Paper');
+  if (!snap) return;
+  const paper = snap.paper_probes || {};
+  const latest = Array.isArray(paper.latest_probes) ? paper.latest_probes : [];
+  body.innerHTML = `
+    <div class="muted">AUTO_DOM_BRIDGE_MODE=paper: mainnet public market data shadow paper only. 실제 주문/키 불필요.</div>
+    <div class="grid2" style="margin-top:8px">
+      <div class="metric"><div class="k">Total probes</div><div class="v">${escapeHtml(paper.total_probes ?? 0)}</div></div>
+      <div class="metric"><div class="k">Open probes</div><div class="v">${escapeHtml(paper.open_probe_count ?? 0)}</div></div>
+    </div>
+    <div class="scroll" style="margin-top:8px">${latest.map((p) => `<div class="signal-news-card">
+      <div class="signal-news-title">${escapeHtml(p.probe_id || p.signal_id || '?')} · ${escapeHtml(p.lifecycle_state || 'PROBE')}</div>
+      <div class="signal-news-meta"><strong>${escapeHtml(p.asset || '?')}</strong><span>${escapeHtml(p.direction || '?')}</span><span>size cap ${escapeHtml(p.size_cap_r ?? '-')}R</span></div>
+      <div class="signal-news-source">entry ${escapeHtml(p.entry_price ?? '-')} · latency d=${escapeHtml(p.detection_latency_sec ?? '-')} decision=${escapeHtml(p.decision_latency_sec ?? '-')}</div>
+      <div class="signal-news-summary">market reaction: ${escapeHtml(JSON.stringify(p.market_reaction_snapshot || {}).slice(0, 240))}</div>
+    </div>`).join('') || '<div class="muted">paper probe ledger empty</div>'}</div>`;
+}
+
+function renderPaperReadiness(body) {
+  const snap = ensureAutodomPanel(body, 'Readiness');
+  if (!snap) return;
+  const paper = snap.paper_readiness || {};
+  const micro = snap.micro_live_readiness || {};
+  const checks = [...(paper.checks || []), ...(micro.checks || [])];
+  body.innerHTML = `
+    <div class="gate-mode ${paper.ready ? 'ok' : 'warn'}">Paper readiness · ${paper.ready ? 'READY' : 'CHECK'}</div>
+    <div class="gate-mode ${micro.ready_for_approval_review ? 'warn' : 'err'}" style="margin-top:6px">Micro live readiness · ${micro.enabled ? 'ENABLED' : 'LOCKED'} / approval review ${micro.ready_for_approval_review ? 'possible' : 'not yet'}</div>
+    <div class="muted" style="margin-top:6px">${escapeHtml(paper.market_data_policy || '')}</div>
+    <div class="scroll" style="margin-top:8px">${checks.map((c) => `<div class="row between"><span>${escapeHtml(c.name)}</span><span class="badge ${c.ready ? 'ok' : 'warn'}">${c.ready ? 'OK' : 'WAIT'}</span></div>`).join('')}</div>`;
+}
+
+function renderQualityReport(body) {
+  const snap = ensureAutodomPanel(body, 'Quality');
+  if (!snap) return;
+  const q = snap.quality_report || {};
+  const blocked = q.top_fast_alpha_blocked_reasons || [];
+  body.innerHTML = `
+    <div class="grid2">
+      ${['fast_alpha_candidate_count','paper_probe_candidate_count','paper_probe_opened_count','paper_probe_blocked_count','timed_out_count','invalidated_count','upgraded_count','bad_symbol_count'].map((k) => `<div class="metric"><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(q[k] ?? 0)}</div></div>`).join('')}
+    </div>
+    <div style="margin-top:8px"><strong>Top blocked reasons</strong></div>
+    <div class="scroll">${blocked.map((row) => `<div class="row between"><span>${escapeHtml(Array.isArray(row) ? row[0] : row.reason || row[0] || 'unknown')}</span><span>${escapeHtml(Array.isArray(row) ? row[1] : row.count || '')}</span></div>`).join('') || '<div class="muted">blocked reason 없음</div>'}</div>`;
+}
+
+function renderSourcesHealth(body) {
+  const snap = ensureAutodomPanel(body, 'Sources');
+  if (!snap) return;
+  const sourceHealth = snap.source_health || snap.quality_report?.source_health || {};
+  const sources = sourceHealth.sources || sourceHealth;
+  const entries = Object.entries(sources).filter(([id]) => id !== '_summary');
+  body.innerHTML = `<div class="grid2">
+    <div class="metric"><div class="k">collector down</div><div class="v ${sourceHealth.collector_down_count ? 'down' : 'up'}">${escapeHtml(sourceHealth.collector_down_count ?? sourceHealth._summary?.collector_down_count ?? 0)}</div></div>
+    <div class="metric"><div class="k">quiet/no-news</div><div class="v">${escapeHtml(sourceHealth.quiet_no_news_count ?? sourceHealth._summary?.quiet_no_news_count ?? 0)}</div></div>
+  </div>
+  <div class="scroll" style="margin-top:8px">${entries.map(([id, s]) => `<div class="signal-news-card"><div class="signal-news-title">${escapeHtml(id)} <span class="badge ${s.collector_down ? 'err' : s.quiet_no_news ? 'warn' : 'ok'}">${escapeHtml(s.status || s.collector_status || 'ok')}</span></div><div class="signal-news-source">last ${escapeHtml(s.last_seen_at || s.last_success_at || '-')} · samples ${escapeHtml(s.samples || s.source_health_samples || 0)}</div><div class="signal-news-summary">${escapeHtml(s.last_error || (s.quiet_no_news ? 'collector OK, no matching news' : ''))}</div></div>`).join('') || '<div class="muted">source-health telemetry 없음</div>'}</div>`;
+}
+
+function renderIncidentClusters(body) {
+  const snap = ensureAutodomPanel(body, 'Incidents');
+  if (!snap) return;
+  const clusters = Array.isArray(snap.incident_clusters) ? snap.incident_clusters : [];
+  body.innerHTML = `<div class="muted">동일 incident_id는 state update로 묶고 duplicate probe 재진입을 막습니다.</div><div class="scroll" style="margin-top:8px">${clusters.map((c) => `<div class="signal-news-card"><div class="signal-news-title">${escapeHtml(c.incident_id)} · ${escapeHtml(c.latest_state || '?')}</div><div class="signal-news-source">signals ${escapeHtml(c.signal_count || 0)} · sources ${escapeHtml(c.source_count || 0)} · duplicate block ${escapeHtml(c.duplicate_probe_block_required ? 'required' : 'no')}</div><div class="signal-news-summary">why blocked: ${escapeHtml(c.blocked_reason || '-')} · upgrade: ${escapeHtml(c.upgrade_condition || '-')}</div></div>`).join('') || '<div class="muted">incident cluster 없음</div>'}</div>`;
+}
+
+function renderReplayFixtures(body) {
+  const snap = ensureAutodomPanel(body, 'Replay');
+  if (!snap) return;
+  const q = snap.quality_report || {};
+  body.innerHTML = `<div class="muted">Replay/fixture assertions: expected_state, expected_signal_type, expected_lane, expected_symbol, expected_paper_probe_allowed, expected_market_reaction_gate_result, expected_size_cap_r, expected_blocked_reason, expected_upgrade_condition.</div>
+  <div style="margin-top:8px"><strong>Triage candidates</strong></div>
+  <pre class="muted" style="white-space:pre-wrap; max-height:260px; overflow:auto">${escapeHtml(JSON.stringify(q.triage_candidates || [], null, 2).slice(0, 4000))}</pre>`;
 }
 
 const CRITICAL_EVENTS = new Set(['protocol_critical_exploit', 'bridge_exploit', 'exchange_delisting_or_systemic_exchange_failure', 'war_level_global_macro_shock']);

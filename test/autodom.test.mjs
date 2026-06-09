@@ -12,11 +12,11 @@ test('parseInboxLine flattens the inbox envelope payload', () => {
     received_at: new Date().toISOString(),
     signal_id: 'sig_1',
     event_id: 'evt_1',
-    payload: { symbol: 'BTCUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.95, urgency_score: 0.94, ttl_sec: 90, rumor: false, trade_allowed: true, evidence_summary: [{ source_type: 'official', source_label: 'Binance', summary: `incident confirmed | published=${published}` }] }
+    payload: { symbol: 'ZECUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.95, urgency_score: 0.94, ttl_sec: 90, rumor: false, trade_allowed: true, evidence_summary: [{ source_type: 'official', source_label: 'Zcash', summary: `Zcash incident confirmed | published=${published}` }] }
   });
   const parsed = parseInboxLine(line);
   assert.equal(parsed.signalId, 'sig_1');
-  assert.equal(parsed.symbol, 'BTCUSDT');
+  assert.equal(parsed.symbol, 'ZECUSDT');
   assert.equal(parsed.direction, 'SHORT');
   assert.equal(parsed.verificationState, 'VERIFIED');
   assert.equal(parsed.confidenceScore, 0.95);
@@ -27,8 +27,8 @@ test('parseInboxLine flattens the inbox envelope payload', () => {
 test('assessNewsTrade only allows real-time serious news for preview/review', () => {
   const published = new Date().toUTCString();
   const evidence = [{ summary: `official severe incident | published=${published}` }];
-  assert.equal(assessNewsTrade({ symbol: 'BTCUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.91, urgency_score: 0.86, trade_allowed: true, evidence_summary: evidence }).status, 'PREVIEW_READY');
-  assert.equal(assessNewsTrade({ symbol: 'ETHUSDT', direction: 'LONG', event_type: 'bridge_exploit', verification_state: 'PROBABLE', confidence_score: 0.78, urgency_score: 0.82, trade_allowed: false, evidence_summary: evidence }).status, 'GATE_REVIEW');
+  assert.equal(assessNewsTrade({ symbol: 'ZECUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.91, urgency_score: 0.86, trade_allowed: true, evidence_summary: evidence }).status, 'PREVIEW_READY');
+  assert.equal(assessNewsTrade({ symbol: 'SOLUSDT', direction: 'LONG', event_type: 'bridge_exploit', verification_state: 'PROBABLE', confidence_score: 0.78, urgency_score: 0.82, trade_allowed: false, evidence_summary: evidence }).status, 'GATE_REVIEW');
   assert.equal(assessNewsTrade({ symbol: 'SOLUSDT', direction: 'LONG', event_type: 'major_regulatory_action', verification_state: 'PROBABLE', confidence_score: 0.9, urgency_score: 0.9, evidence_summary: evidence }).status, 'NO_TRADE');
   assert.equal(assessNewsTrade({ symbol: 'ZECUSDT', direction: 'SHORT', event_type: 'protocol_critical_exploit', verification_state: 'VERIFIED', confidence_score: 0.95, urgency_score: 0.95, trade_allowed: true, evidence_summary: [{ summary: 'old incident | published=Thu, 04 Jun 2026 04:49:44 -0400' }] }).status, 'NO_TRADE');
   assert.equal(assessNewsTrade({ symbol: 'DOGEUSDT', rumor: true }).status, 'NO_TRADE');
@@ -50,6 +50,29 @@ test('impact-news notifications pick only preview/review candidates and format T
   assert.match(message, /ZEC SHORT/);
   assert.match(message, /critical vuln confirmed/);
   assert.match(message, /https:\/\/example\.com\/zec/);
+});
+
+test('impact-news suppresses BTC/ETH proxy picks for symbol-specific protocol incidents', () => {
+  const published = new Date().toUTCString();
+  const humanity = parseInboxLine(JSON.stringify({
+    received_at: new Date().toISOString(),
+    signal_id: 'humanity-proxy',
+    payload: {
+      symbol: 'ETHUSDT',
+      direction: 'SHORT',
+      event_type: 'protocol_critical_exploit',
+      verification_state: 'PROBABLE',
+      confidence_score: 0.77,
+      urgency_score: 0.8,
+      ttl_sec: 300,
+      rumor: false,
+      trade_allowed: false,
+      evidence_summary: [{ source_type: 'independent_media', source_label: 'The Block', summary: `Wallets linked to Humanity Protocol drained for over $32 million, token plunges 89%: onchain analyst | published=${published}`, url: 'https://example.com/humanity' }]
+    }
+  }));
+  assert.equal(humanity.newsTrade.status, 'NO_TRADE');
+  assert.match(humanity.newsTrade.reasons.join(' '), /프록시 오판/);
+  assert.equal(pickImpactNewsNotifications([humanity]).length, 0);
 });
 
 test('parseInboxLine tolerates a bare signal and rejects bad json', () => {
@@ -141,4 +164,20 @@ test('recentExecutions reads the live_audit JSONL tail newest-first', async () =
   assert.equal(result.executions.length, 2);
   assert.equal(result.executions[0].signalId, 'b'); // newest first
   assert.equal(result.executions[0].decision, 'rejected');
+});
+
+
+test('K Terminal keeps Fast Alpha Paper Quality inside Signals, not top-level tabs', async () => {
+  const app = await fs.readFile(new URL('../public/app.js', import.meta.url), 'utf8');
+  const index = await fs.readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+  assert.doesNotMatch(index, /data-tab="fast-alpha"|data-tab="paper"|data-tab="quality"/);
+  assert.match(index, /data-tab="signals"/);
+  assert.match(index, /data-tab="market"/);
+  assert.match(app, /signals: \{[\s\S]*'fast-alpha'[\s\S]*'paper-probes'[\s\S]*'quality-report'/);
+  assert.match(app, /renderFastAlpha/);
+  assert.match(app, /renderPaperProbes/);
+  assert.match(app, /renderQualityReport/);
+  assert.match(app, /why shown/);
+  assert.match(app, /upgrade condition/);
+  assert.doesNotMatch(index + app, /<button[^>]*>\s*(ORDER|LIVE ENABLE|ENABLE LIVE)|leverage input/i);
 });
